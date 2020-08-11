@@ -1,0 +1,729 @@
+; Zilog eZ80 ANSI C Compiler Release 3.4
+; -optsize -noreduceopt -nomodsect -peephole -globalopt
+; -localcse -const=ROM 
+	FILE	"SRC\MAIN.C"
+	.assume ADL=1
+	SEGMENT TEXT
+_CLOCK_SPEED:
+	DW	32768
+_KHZ:
+	DW	1000
+_FPS:
+	DB	8
+_COLOR_BG:
+	DB	0
+_COLOR_FONT:
+	DB	2
+	SEGMENT BSS
+_programState:
+	DS	1
+_running:
+	DS	1
+_realFPS:
+	DS	4*1
+_keyUp:
+	DS	1
+_keyDown:
+	DS	1
+_keyLeft:
+	DS	1
+_keyRight:
+	DS	1
+_key2nd:
+	DS	1
+_keyMode:
+	DS	1
+_keyDel:
+	DS	1
+_keyEnter:
+	DS	1
+_keyClear:
+	DS	1
+_keyUpReady:
+	DS	1
+_keyDownReady:
+	DS	1
+_keyLeftReady:
+	DS	1
+_keyRightReady:
+	DS	1
+_key2ndReady:
+	DS	1
+_keyModeReady:
+	DS	1
+_keyDelReady:
+	DS	1
+_keyEnterReady:
+	DS	1
+_keyClearReady:
+	DS	1
+;    1	/*
+;    2	
+;    3	Tetris for the TI-84 Plus CE graphing calculator
+;    4	Programmed by Ben Correll
+;    5	Last updated 8-10-2020
+;    6	
+;    7	*/
+;    8	
+;    9	#include "main.h"
+;   10	
+;   11	#include <tice.h>
+;   12	#include <graphx.h>
+;   13	#include <keypadc.h>
+;   14	#include <debug.h>
+;   15	/*#include <fileioc.h>
+;   16	#include <fontlibc.h>*/
+;   17	
+;   18	/*#include <stdio.h>
+;   19	#include <stdlib.h>
+;   20	#include <stddef.h>
+;   21	#include <stdint.h>
+;   22	#include <stdbool.h>
+;   23	
+;   24	#include <math.h>
+;   25	#include <string.h>
+;   26	#include <ctype.h>*/
+;   27	
+;   28	#include "game.h"
+;   29	#include "menu.h"
+;   30	#include "gameOver.h"
+;   31	#include "text.h"
+;   32	#include "color.h"
+;   33	
+;   34	const uint16_t CLOCK_SPEED = 32768;
+;   35	const uint16_t KHZ = 1000;
+;   36	const uint8_t FPS = 8;
+;   37	
+;   38	const uint8_t COLOR_BG    = 0x00;
+;   39	const uint8_t COLOR_FONT  = 0x02;
+;   40	
+;   41	uint8_t programState;
+;   42	bool running;
+;   43	uint32_t realFPS;
+;   44	
+;   45	bool keyUp;
+;   46	bool keyDown;
+;   47	bool keyLeft;
+;   48	bool keyRight;
+;   49	bool key2nd;
+;   50	bool keyMode;
+;   51	bool keyDel;
+;   52	bool keyEnter;
+;   53	bool keyClear;
+;   54	
+;   55	bool keyUpReady;
+;   56	bool keyDownReady;
+;   57	bool keyLeftReady;
+;   58	bool keyRightReady;
+;   59	bool key2ndReady;
+;   60	bool keyModeReady;
+;   61	bool keyDelReady;
+;   62	bool keyEnterReady;
+;   63	bool keyClearReady;
+	SEGMENT CODE
+;   64	
+;   65	int main(void) {
+_main:
+	LD	HL,-27
+	CALL	__frameset
+;   66		uint32_t elapsed = 0;
+;   67		uint32_t begin = 0;
+;   68		uint32_t end = 0;
+;   69		
+;   70		running = 1;
+	LD	A,1
+	LD	(_running),A
+;   71		
+;   72		keyUpReady = 0;
+	XOR	A,A
+	LD	(_keyUpReady),A
+;   73		keyDownReady = 0;
+	XOR	A,A
+	LD	(_keyDownReady),A
+;   74		keyLeftReady = 0;
+	XOR	A,A
+	LD	(_keyLeftReady),A
+;   75		keyRightReady = 0;
+	XOR	A,A
+	LD	(_keyRightReady),A
+;   76		key2ndReady = 0;
+	XOR	A,A
+	LD	(_key2ndReady),A
+;   77		keyModeReady = 0;
+	XOR	A,A
+	LD	(_keyModeReady),A
+;   78		keyDelReady = 0;
+	XOR	A,A
+	LD	(_keyDelReady),A
+;   79		keyEnterReady = 0;
+	XOR	A,A
+;   80		keyClearReady = 0;
+;   81		
+;   82		changeState(0);
+	LD	BC,0
+	PUSH	BC
+	LD	(_keyEnterReady),A
+	XOR	A,A
+	LD	(_keyClearReady),A
+	CALL	_changeState
+	POP	BC
+;   83		
+;   84		
+;   85		timer_Control = TIMER1_DISABLE;
+	LD	HL,15859760
+	LD	(HL),0
+	INC	HL
+	LD	(HL),0
+;   86	    timer_1_Counter = 0;
+	LD	BC,0
+	LD	(15859712),BC
+	XOR	A,A
+	LD	(15859715),A
+;   87	    timer_Control = TIMER1_ENABLE | TIMER1_32K | TIMER1_UP;
+	LD	HL,15859760
+	LD	(HL),3
+	INC	HL
+;   88		realFPS = 0;
+;   89		
+;   90		gfx_Begin(gfx_8bpp);
+	LD	BC,39
+	PUSH	BC
+	LD	(HL),2
+	LD	BC,0
+	LD	(_realFPS),BC
+	XOR	A,A
+	LD	(_realFPS+3),A
+	CALL	_gfx_Begin
+	POP	BC
+;   91		//gfx_SetTransparentColor(0x40);
+;   92		gfx_SetPalette(palette, 0xFF, 0);
+	LD	BC,0
+	PUSH	BC
+	LD	BC,255
+	PUSH	BC
+	LD	BC,_palette
+	PUSH	BC
+	CALL	_gfx_SetPalette
+	POP	BC
+	POP	BC
+	POP	BC
+;   93		gfx_SetDrawBuffer();
+	LD	BC,1
+	PUSH	BC
+	CALL	_gfx_SetDraw
+	POP	BC
+;   94		
+;   95		initFont();
+	CALL	_initFont
+;   96		
+;   97		while(running) {
+	JR	L_68
+L_69:
+;   98			//begin = timer_1_Counter;
+;   99			timer_1_Counter = 0;
+	LD	BC,0
+	LD	(15859712),BC
+	XOR	A,A
+	LD	(15859715),A
+;  100			
+;  101			keyUp = 0;
+	XOR	A,A
+	LD	(_keyUp),A
+;  102			keyDown = 0;
+	XOR	A,A
+	LD	(_keyDown),A
+;  103			keyLeft = 0;
+	XOR	A,A
+	LD	(_keyLeft),A
+;  104			keyRight = 0;
+	XOR	A,A
+	LD	(_keyRight),A
+;  105			key2nd = 0;
+	XOR	A,A
+	LD	(_key2nd),A
+;  106			keyMode = 0;
+	XOR	A,A
+	LD	(_keyMode),A
+;  107			keyDel = 0;
+	XOR	A,A
+	LD	(_keyDel),A
+;  108			keyEnter = 0;
+	XOR	A,A
+	LD	(_keyEnter),A
+;  109			keyClear = 0;
+	XOR	A,A
+	LD	(_keyClear),A
+;  110			
+;  111			kb_Scan();
+	CALL	_kb_Scan
+;  112			
+;  113			if(kb_Data[7] & kb_Up) {keyUp = 1;}
+	LD	A,(16056350)
+	AND	A,8
+	JR	Z,L_2
+	LD	A,1
+	LD	(_keyUp),A
+L_2:
+;  114			if(kb_Data[7] & kb_Down) {keyDown = 1;}
+	LD	A,(16056350)
+	AND	A,1
+	JR	Z,L_4
+	LD	A,1
+	LD	(_keyDown),A
+L_4:
+;  115			if(kb_Data[7] & kb_Left) {keyLeft = 1;}
+	LD	A,(16056350)
+	AND	A,2
+	JR	Z,L_6
+	LD	A,1
+	LD	(_keyLeft),A
+L_6:
+;  116			if(kb_Data[7] & kb_Right) {keyRight = 1;}
+	LD	A,(16056350)
+	AND	A,4
+	JR	Z,L_8
+	LD	A,1
+	LD	(_keyRight),A
+L_8:
+;  117			if(kb_Data[1] & kb_2nd) {key2nd = 1;}
+	LD	A,(16056338)
+	AND	A,32
+	JR	Z,L_10
+	LD	A,1
+	LD	(_key2nd),A
+L_10:
+;  118			if(kb_Data[1] & kb_Mode) {keyMode = 1;}
+	LD	A,(16056338)
+	AND	A,64
+	JR	Z,L_12
+	LD	A,1
+	LD	(_keyMode),A
+L_12:
+;  119			if(kb_Data[1] & kb_Del) {keyDel = 1;}
+	LD	A,(16056338)
+	AND	A,128
+	JR	Z,L_14
+	LD	A,1
+	LD	(_keyDel),A
+L_14:
+;  120			if(kb_Data[6] & kb_Enter) {keyEnter = 1;}
+	LD	A,(16056348)
+	AND	A,1
+	JR	Z,L_16
+	LD	A,1
+	LD	(_keyEnter),A
+L_16:
+;  121			if(kb_Data[6] & kb_Clear) {keyClear = 1;}
+	LD	A,(16056348)
+	AND	A,64
+	JR	Z,L_22
+	LD	A,1
+	LD	(_keyClear),A
+L_22:
+;  122			
+;  123			if(programState == 0) {updateMenu();}
+	LD	A,(_programState)
+	OR	A,A
+	JR	NZ,L_21
+	CALL	_updateMenu
+;  124			else if(programState == 1) {updateGame();}
+	JR	L_27
+L_21:
+	LD	A,(_programState)
+	CP	A,1
+	JR	NZ,L_19
+	CALL	_updateGame
+;  125			else if(programState == 2) {updateGameOver();}
+	JR	L_27
+L_19:
+	LD	A,(_programState)
+	CP	A,2
+	JR	NZ,L_27
+	CALL	_updateGameOver
+L_27:
+;  126			
+;  127			keyUpReady = !keyUp;
+	LD	A,(_keyUp)
+	OR	A,A
+	JR	NZ,L_24
+	LD	BC,1
+	LD	(IX+-3),BC
+	JR	L_25
+L_24:
+	LD	BC,0
+	LD	(IX+-3),BC
+L_25:
+	LD	A,(IX+-3)
+	LD	(_keyUpReady),A
+;  128			keyDownReady = !keyDown;
+	LD	A,(_keyDown)
+	OR	A,A
+	JR	NZ,L_29
+	LD	BC,1
+	LD	(IX+-6),BC
+	JR	L_30
+L_29:
+	LD	BC,0
+	LD	(IX+-6),BC
+L_30:
+	LD	A,(IX+-6)
+	LD	(_keyDownReady),A
+;  129			keyLeftReady = !keyLeft;
+	LD	A,(_keyLeft)
+	OR	A,A
+	JR	NZ,L_33
+	LD	BC,1
+	LD	(IX+-9),BC
+	JR	L_34
+L_33:
+	LD	BC,0
+	LD	(IX+-9),BC
+L_34:
+	LD	A,(IX+-9)
+	LD	(_keyLeftReady),A
+;  130			keyRightReady = !keyRight;
+	LD	A,(_keyRight)
+	OR	A,A
+	JR	NZ,L_37
+	LD	BC,1
+	LD	(IX+-12),BC
+	JR	L_38
+L_37:
+	LD	BC,0
+	LD	(IX+-12),BC
+L_38:
+	LD	A,(IX+-12)
+	LD	(_keyRightReady),A
+;  131			key2ndReady = !key2nd;
+	LD	A,(_key2nd)
+	OR	A,A
+	JR	NZ,L_41
+	LD	BC,1
+	LD	(IX+-15),BC
+	JR	L_42
+L_41:
+	LD	BC,0
+	LD	(IX+-15),BC
+L_42:
+	LD	A,(IX+-15)
+	LD	(_key2ndReady),A
+;  132			keyModeReady = !keyMode;
+	LD	A,(_keyMode)
+	OR	A,A
+	JR	NZ,L_45
+	LD	BC,1
+	LD	(IX+-18),BC
+	JR	L_46
+L_45:
+	LD	BC,0
+	LD	(IX+-18),BC
+L_46:
+	LD	A,(IX+-18)
+	LD	(_keyModeReady),A
+;  133			keyDelReady = !keyDel;
+	LD	A,(_keyDel)
+	OR	A,A
+	JR	NZ,L_49
+	LD	BC,1
+	LD	(IX+-21),BC
+	JR	L_50
+L_49:
+	LD	BC,0
+	LD	(IX+-21),BC
+L_50:
+	LD	A,(IX+-21)
+	LD	(_keyDelReady),A
+;  134			keyEnterReady = !keyEnter;
+	LD	A,(_keyEnter)
+	OR	A,A
+	JR	NZ,L_53
+	LD	BC,1
+	LD	(IX+-24),BC
+	JR	L_54
+L_53:
+	LD	BC,0
+	LD	(IX+-24),BC
+L_54:
+	LD	A,(IX+-24)
+	LD	(_keyEnterReady),A
+;  135			keyClearReady = !keyClear;
+	LD	A,(_keyClear)
+	OR	A,A
+	JR	NZ,L_57
+	LD	BC,1
+	LD	(IX+-27),BC
+	JR	L_58
+L_57:
+	LD	BC,0
+	LD	(IX+-27),BC
+L_58:
+	LD	A,(IX+-27)
+	LD	(_keyClearReady),A
+;  136			
+;  137			if(programState == 0) {drawMenu();}
+	LD	A,(_programState)
+	OR	A,A
+	JR	NZ,L_64
+	CALL	_drawMenu
+;  138			else if(programState == 1) {drawGame();}
+	JR	L_66
+L_64:
+	LD	A,(_programState)
+	CP	A,1
+	JR	NZ,L_62
+	CALL	_drawGame
+;  139			else if(programState == 2) {drawGameOver();}
+	JR	L_66
+L_62:
+	LD	A,(_programState)
+	CP	A,2
+	JR	NZ,L_66
+	CALL	_drawGameOver
+L_66:
+;  140			
+;  141			//#define FPS 32768 / 30
+;  142			//if(elapsed < FPS) {delay((uint16_t)((FPS * 1000 - elapsed * 1000) / 32768));}
+;  143			
+;  144			if(atomic_load_increasing_32(&timer_1_Counter) < (CLOCK_SPEED / FPS)) {delay((uint16_t)((CLOCK_SPEED / FPS - atomic_load_increasing_32(&timer_1_Counter)) * KHZ / CLOCK_SPEED));}
+	LD	BC,15859712
+	PUSH	BC
+	CALL	_atomic_load_increasing_32
+	POP	BC
+	LD	BC,4096
+	XOR	A,A
+	CALL	__lcmpu
+	JR	NC,L_67
+	LD	BC,15859712
+	PUSH	BC
+	CALL	_atomic_load_increasing_32
+	POP	BC
+	LD	A,E
+	LD	BC,HL
+	LD	HL,4096
+	LD	E,0
+	CALL	__lsub
+	LD	BC,1000
+	XOR	A,A
+	CALL	__lmulu
+	LD	BC,HL
+	LD	L,15
+	LD	A,E
+	CALL	__lshru
+	PUSH	BC
+	CALL	_delay
+	POP	BC
+L_67:
+;  145			// something around here is wrong - fps isn't getting limited properly
+;  146			
+;  147			//gfx_FillScreen(COLOR_BG);
+;  148		
+;  149			//drawString("FPS", 0, 240, -1, LEFT_JUSTIFIED, BOTTOM_ALIGNED);
+;  150			//drawUInt(realFPS, 0, 240, 0, LEFT_JUSTIFIED, BOTTOM_ALIGNED);
+;  151			
+;  152			//gfx_Blit(gfx_buffer);
+;  153			
+;  154			//realFPS = CLOCK_SPEED / timer_1_Counter;
+;  155			
+;  156			//end = timer_1_Counter;
+;  157			//if(end < begin) {end += 32768;}
+;  158			//elapsed = end - begin;
+;  159			
+;  160			// FPS / 32768                  GOAL
+;  161			// (FPS - elapsed) / 32768      ACTUAL
+;  162			// GOAL - ACTUAL
+;  163			
+;  164			//if(elapsed < (CLOCK_SPEED / FPS)) {delay((uint16_t)(((CLOCK_SPEED / FPS) * KHZ - elapsed * KHZ) / CLOCK_SPEED));}
+;  165			
+;  166			realFPS = CLOCK_SPEED / atomic_load_increasing_32(&timer_1_Counter);
+	LD	BC,15859712
+	PUSH	BC
+	CALL	_atomic_load_increasing_32
+	POP	BC
+	LD	A,E
+	LD	BC,HL
+	LD	HL,32768
+	LD	E,0
+	CALL	__ldivu
+	LD	(_realFPS),HL
+	LD	A,E
+	LD	(_realFPS+3),A
+;  167		}
+L_68:
+	LD	A,(_running)
+	OR	A,A
+	JR	NZ,L_69
+;  168		
+;  169		gfx_End();
+	CALL	_gfx_End
+	OR	A,A
+;  170		
+;  171		return(0);
+	SBC	HL,HL
+;  172	}
+	LD	SP,IX
+	POP	IX
+	RET	
+
+
+;**************************** _main ***************************
+;Name                         Addr/Register   Size   Type
+;_gfx_End                            IMPORT  -----   function
+;_delay                              IMPORT  -----   function
+;_atomic_load_increasing_32          IMPORT  -----   function
+;_drawGameOver                       IMPORT  -----   function
+;_drawGame                           IMPORT  -----   function
+;_drawMenu                           IMPORT  -----   function
+;_updateGameOver                     IMPORT  -----   function
+;_updateGame                         IMPORT  -----   function
+;_updateMenu                         IMPORT  -----   function
+;_programState                       STATIC      1   variable
+;_kb_Scan                            IMPORT  -----   function
+;_keyClear                           STATIC      1   variable
+;_keyEnter                           STATIC      1   variable
+;_keyDel                             STATIC      1   variable
+;_keyMode                            STATIC      1   variable
+;_key2nd                             STATIC      1   variable
+;_keyRight                           STATIC      1   variable
+;_keyLeft                            STATIC      1   variable
+;_keyDown                            STATIC      1   variable
+;_keyUp                              STATIC      1   variable
+;_initFont                           IMPORT  -----   function
+;_gfx_SetDraw                        IMPORT  -----   function
+;_palette                            IMPORT    512   variable
+;_gfx_SetPalette                     IMPORT  -----   function
+;_gfx_Begin                          IMPORT  -----   function
+;_realFPS                            STATIC      4   variable
+;_changeState                        IMPORT  -----   function
+;_keyClearReady                      STATIC      1   variable
+;_keyEnterReady                      STATIC      1   variable
+;_keyDelReady                        STATIC      1   variable
+;_keyModeReady                       STATIC      1   variable
+;_key2ndReady                        STATIC      1   variable
+;_keyRightReady                      STATIC      1   variable
+;_keyLeftReady                       STATIC      1   variable
+;_keyDownReady                       STATIC      1   variable
+;_keyUpReady                         STATIC      1   variable
+;_running                            STATIC      1   variable
+;temp59                               IX-27      3   variable
+;temp55                               IX-24      3   variable
+;temp51                               IX-21      3   variable
+;temp47                               IX-18      3   variable
+;temp43                               IX-15      3   variable
+;temp39                               IX-12      3   variable
+;temp35                                IX-9      3   variable
+;temp31                                IX-6      3   variable
+;temp26                                IX-3      3   variable
+
+
+; Stack Frame Size: 33 (bytes)
+;       Spill Code: 0 (instruction)
+
+
+;  173	
+;  174	void changeState(uint8_t state) {
+_changeState:
+	CALL	__frameset0
+;  175		if(state == 0) {
+	LD	A,(IX+6)
+	OR	A,A
+	JR	NZ,L_76
+;  176			programState = 0;
+	XOR	A,A
+	LD	(_programState),A
+;  177			initMenu();
+	CALL	_initMenu
+;  178		}
+;  179		else if(state == 1) {
+	JR	L_77
+L_76:
+	LD	A,(IX+6)
+	CP	A,1
+	JR	NZ,L_74
+;  180			programState = 1;
+	LD	A,1
+	LD	(_programState),A
+;  181			initGame();
+	CALL	_initGame
+;  182		}
+;  183		else if(state == 2) {
+	JR	L_77
+L_74:
+	LD	A,(IX+6)
+	CP	A,2
+	JR	NZ,L_77
+;  184			programState = 2;
+	LD	A,2
+	LD	(_programState),A
+;  185			//initGameOver();
+;  186		}
+L_77:
+	LD	SP,IX
+	POP	IX
+	RET	
+
+
+;**************************** _changeState ***************************
+;Name                         Addr/Register   Size   Type
+;_initGame                           IMPORT  -----   function
+;_initMenu                           IMPORT  -----   function
+;_programState                       STATIC      1   variable
+;state                                 IX+6      1   parameter
+
+
+; Stack Frame Size: 9 (bytes)
+;       Spill Code: 0 (instruction)
+
+
+	XREF _palette:ROM
+	XREF _initFont:ROM
+	XREF _drawGameOver:ROM
+	XREF _updateGameOver:ROM
+	XREF _drawMenu:ROM
+	XREF _updateMenu:ROM
+	XREF _initMenu:ROM
+	XREF _drawGame:ROM
+	XREF _updateGame:ROM
+	XREF _initGame:ROM
+	XREF _kb_Scan:ROM
+	XREF _gfx_SetDraw:ROM
+	XREF _gfx_SetPalette:ROM
+	XREF _gfx_End:ROM
+	XREF _gfx_Begin:ROM
+	XREF _atomic_load_increasing_32:ROM
+	XREF _delay:ROM
+	XREF __lcmpu:ROM
+	XREF __lsub:ROM
+	XREF __ldivu:ROM
+	XREF __lmulu:ROM
+	XREF __lshru:ROM
+	XREF __frameset0:ROM
+	XREF __frameset:ROM
+	XDEF _changeState
+	XDEF _main
+	XDEF _keyClearReady
+	XDEF _keyEnterReady
+	XDEF _keyDelReady
+	XDEF _keyModeReady
+	XDEF _key2ndReady
+	XDEF _keyRightReady
+	XDEF _keyLeftReady
+	XDEF _keyDownReady
+	XDEF _keyUpReady
+	XDEF _keyClear
+	XDEF _keyEnter
+	XDEF _keyDel
+	XDEF _keyMode
+	XDEF _key2nd
+	XDEF _keyRight
+	XDEF _keyLeft
+	XDEF _keyDown
+	XDEF _keyUp
+	XDEF _realFPS
+	XDEF _running
+	XDEF _programState
+	XDEF _COLOR_FONT
+	XDEF _COLOR_BG
+	XDEF _FPS
+	XDEF _KHZ
+	XDEF _CLOCK_SPEED
+	END

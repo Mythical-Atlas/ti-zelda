@@ -1,0 +1,880 @@
+; Zilog eZ80 ANSI C Compiler Release 3.4
+; -optsize -noreduceopt -nomodsect -peephole -globalopt
+; -localcse -const=ROM 
+	FILE	"SRC\GAME.C"
+	.assume ADL=1
+	SEGMENT TEXT
+_BORDER_WIDTH:
+	DB	100
+_FIELD_WIDTH:
+	DB	10
+_FIELD_HEIGHT:
+	DB	20
+_TILE_WIDTH:
+	DB	12
+_TILE_HEIGHT:
+	DB	12
+_COLOR_GHOST:
+	DB	2
+	SEGMENT BSS
+_linesCleared:
+	DS	1
+_level:
+	DS	1
+_nextTetromino:
+	DS	1
+_savedTetromino:
+	DS	1
+_saved:
+	DS	1
+_ghostY:
+	DS	1
+;    1	#include "game.h"
+;    2	
+;    3	/*#include <tice.h>*/
+;    4	#include <graphx.h>
+;    5	/*#include <keypadc.h>*/
+;    6	#include <debug.h>
+;    7	/*#include <fileioc.h>
+;    8	#include <fontlibc.h>
+;    9	
+;   10	#include <stdio.h>
+;   11	#include <stdlib.h>
+;   12	#include <stddef.h>
+;   13	#include <stdint.h>
+;   14	#include <stdbool.h>
+;   15	
+;   16	#include <math.h>
+;   17	#include <string.h>
+;   18	#include <ctype.h>*/
+;   19	
+;   20	#include "main.h"
+;   21	#include "field.h"
+;   22	#include "tetromino.h"
+;   23	#include "tetrominoData.h"
+;   24	#include "text.h"
+;   25	
+;   26	const uint8_t BORDER_WIDTH = 100;
+;   27	const uint8_t FIELD_WIDTH = 10; // in tiles
+;   28	const uint8_t FIELD_HEIGHT = 20; // in tiles
+;   29	const uint8_t TILE_WIDTH = 12;
+;   30	const uint8_t TILE_HEIGHT = 12;
+;   31	
+;   32	const uint8_t COLOR_GHOST = 0x02;
+;   33	
+;   34	uint8_t linesCleared;
+;   35	uint8_t level;
+;   36	uint8_t nextTetromino;
+;   37	int8_t savedTetromino;
+;   38	bool saved;
+;   39	int8_t ghostY;
+	SEGMENT CODE
+;   40	
+;   41	void initGame() {
+_initGame:
+;   42		uint8_t ix;
+;   43		uint8_t iy;
+;   44		
+;   45		initField();
+	CALL	_initField
+;   46		
+;   47		// generate next tetromino
+;   48		srand(rtc_Time());
+	LD	BC,(15925316)
+	PUSH	BC
+	CALL	_srand
+	POP	BC
+;   49		nextTetromino = random();
+	CALL	_random
+	LD	BC,HL
+	LD	A,C
+	LD	(_nextTetromino),A
+;   50		while(nextTetromino > 6) {nextTetromino = random();}
+	JR	L_0
+L_1:
+	CALL	_random
+	LD	BC,HL
+	LD	A,C
+	LD	(_nextTetromino),A
+L_0:
+	LD	A,6
+	LD	HL,_nextTetromino
+	CP	A,(HL)
+	JR	C,L_1
+;   51		
+;   52		// make a new tetromino for the start of the game
+;   53		generateTetromino();
+	CALL	_generateTetromino
+;   54		
+;   55		linesCleared = 0;
+	XOR	A,A
+	LD	(_linesCleared),A
+;   56		level = 1;
+	LD	A,1
+	LD	(_level),A
+;   57		gravitySpeed = GRAVITY_START;
+	LD	A,(_GRAVITY_START)
+	LD	(_gravitySpeed),A
+;   58		gravityTimer = 0;
+	XOR	A,A
+	LD	(_gravityTimer),A
+;   59		savedTetromino = -1;
+	LD	A,255
+	LD	(_savedTetromino),A
+;   60		saved = 0;
+	XOR	A,A
+	LD	(_saved),A
+;   61	}
+	RET	
+
+
+;**************************** _initGame ***************************
+;Name                         Addr/Register   Size   Type
+;_saved                              STATIC      1   variable
+;_savedTetromino                     STATIC      1   variable
+;_gravityTimer                       IMPORT      1   variable
+;_gravitySpeed                       IMPORT      1   variable
+;_GRAVITY_START                      IMPORT      1   variable
+;_level                              STATIC      1   variable
+;_linesCleared                       STATIC      1   variable
+;_generateTetromino                  IMPORT  -----   function
+;_nextTetromino                      STATIC      1   variable
+;_random                             IMPORT  -----   function
+;_srand                              IMPORT  -----   function
+;_initField                          IMPORT  -----   function
+
+
+; Stack Frame Size: 6 (bytes)
+;       Spill Code: 0 (instruction)
+
+
+;   62	void updateGame() {
+_updateGame:
+	LD	HL,-2
+	CALL	__frameset
+;   63		int8_t oy;
+;   64		
+;   65		int8_t ts = savedTetromino;
+;   66		int8_t tt = tetrominoType;
+	LD	A,(_tetrominoType)
+	LD	(IX+-2),A
+;   67		
+;   68		if(keyClear && keyClearReady) {
+	LD	A,(_keyClear)
+	OR	A,A
+	JR	Z,L_29
+	LD	A,(_keyClearReady)
+	OR	A,A
+	JR	Z,L_29
+;   69			keyClearReady = 0;
+;   70			changeState(2);
+	LD	BC,2
+	PUSH	BC
+	XOR	A,A
+	LD	(_keyClearReady),A
+	CALL	_changeState
+	POP	BC
+;   71		}
+;   72		else {
+	JR	L_30
+L_29:
+;   73			if(!saved && keyDel && keyDelReady) {
+	LD	A,(_saved)
+	OR	A,A
+	JR	NZ,L_11
+	LD	A,(_keyDel)
+	OR	A,A
+	JR	Z,L_11
+	LD	A,(_keyDelReady)
+	OR	A,A
+	JR	Z,L_11
+;   74				keyDelReady = 0;
+	XOR	A,A
+	LD	(_keyDelReady),A
+;   75				
+;   76				if(savedTetromino != -1) {
+	LD	A,(_savedTetromino)
+	CP	A,-1
+	JR	Z,L_8
+;   77					tetrominoType = ts;
+	LD	A,(_savedTetromino)
+	LD	(_tetrominoType),A
+;   78					savedTetromino = tt;
+	LD	A,(IX+-2)
+	LD	(_savedTetromino),A
+;   79				}
+;   80				else {
+	JR	L_9
+L_8:
+;   81					savedTetromino = tetrominoType;
+	LD	A,(_tetrominoType)
+	LD	(_savedTetromino),A
+;   82					generateTetromino();
+	CALL	_generateTetromino
+;   83				}
+L_9:
+;   84				
+;   85				saved = 1;
+	LD	A,1
+	LD	(_saved),A
+;   86			}
+;   87			else {updateTetromino();}
+	JR	L_12
+L_11:
+	CALL	_updateTetromino
+L_12:
+;   88			
+;   89			updateField();
+	CALL	_updateField
+;   90			
+;   91			oy = tetrominoY;
+	LD	A,(_tetrominoY)
+	LD	(IX+-1),A
+;   92			while(!checkCollision()) {tetrominoY++;}
+	JR	L_14
+L_15:
+	LD	A,(_tetrominoY)
+	INC	A
+	LD	(_tetrominoY),A
+L_14:
+	CALL	_checkCollision
+	OR	A,A
+	JR	Z,L_15
+;   93			ghostY = tetrominoY - 1;
+	LD	A,(_tetrominoY)
+	DEC	A
+	LD	(_ghostY),A
+;   94			tetrominoY = oy;
+	LD	A,(IX+-1)
+	LD	(_tetrominoY),A
+;   95			
+;   96			dbg_ClearConsole();
+;   97			
+;   98			dbg_sprintf(dbgout, "tetromino type = %u\n", tetrominoType);
+;   99			dbg_sprintf(dbgout, "tetromino orientation = %u\n", tetrominoOrientation);
+;  100			dbg_sprintf(dbgout, "tetromino x = %i\n", tetrominoX);
+;  101			dbg_sprintf(dbgout, "tetromino y = %i\n", tetrominoY);
+;  102			dbg_sprintf(dbgout, "tetromino w = %u\n", tetrominoW);
+;  103			dbg_sprintf(dbgout, "tetromino h = %u\n\n", tetrominoH);
+;  104		}
+;  105	}
+L_30:
+	LD	SP,IX
+	POP	IX
+	RET	
+
+
+;**************************** _updateGame ***************************
+;Name                         Addr/Register   Size   Type
+;_ghostY                             STATIC      1   variable
+;_checkCollision                     IMPORT  -----   function
+;_tetrominoY                         IMPORT      1   variable
+;_updateField                        IMPORT  -----   function
+;_updateTetromino                    IMPORT  -----   function
+;_generateTetromino                  IMPORT  -----   function
+;_savedTetromino                     STATIC      1   variable
+;_keyDelReady                        IMPORT      1   variable
+;_keyDel                             IMPORT      1   variable
+;_saved                              STATIC      1   variable
+;_changeState                        IMPORT  -----   function
+;_keyClearReady                      IMPORT      1   variable
+;_keyClear                           IMPORT      1   variable
+;_tetrominoType                      IMPORT      1   variable
+;tt                                    IX-2      1   variable
+;oy                                    IX-1      1   variable
+
+
+; Stack Frame Size: 8 (bytes)
+;       Spill Code: 0 (instruction)
+
+
+;  106	void drawGame() {
+_drawGame:
+	LD	HL,-2
+	CALL	__frameset
+;  107		uint8_t ix;
+;  108		uint8_t iy;
+;  109		
+;  110		gfx_FillScreen(COLOR_BG);
+	LD	A,(_COLOR_BG)
+	LD	C,A
+	LD	B,0
+	PUSH	BC
+	CALL	_gfx_FillScreen
+	POP	BC
+;  111		
+;  112		drawField();
+	CALL	_drawField
+;  113		
+;  114		gfx_SetColor(COLOR_GHOST);
+	LD	BC,2
+	PUSH	BC
+	CALL	_gfx_SetColor
+	POP	BC
+;  115		for(ix = 0; ix < 4; ix++) {for(iy = 0; iy < 4; iy++) {if(ORIENTATIONS[tetrominoType][tetrominoOrientation][iy][ix]) {gfx_Rectangle(BORDER_WIDTH + (tetrominoX + ix) * TILE_WIDTH, (ghostY + iy) * TILE_HEIGHT, TILE_WIDTH, TILE_HEIGHT);}}}
+	LD	(IX+-1),0
+	JR	L_39
+L_37:
+	LD	(IX+-2),0
+	JR	L_36
+L_34:
+	LD	A,(_tetrominoType)
+	UEXT	HL
+	LD	L,A
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,HL
+	LD	BC,_ORIENTATIONS
+	ADD	HL,BC
+	LD	BC,HL
+	LD	A,(_tetrominoOrientation)
+	UEXT	HL
+	LD	L,A
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,BC
+	LD	BC,HL
+	LD	A,(IX+-2)
+	UEXT	HL
+	LD	L,A
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,BC
+	LD	BC,HL
+	LD	A,(IX+-1)
+	UEXT	HL
+	LD	L,A
+	ADD	HL,BC
+	LD	A,(HL)
+	OR	A,A
+	JR	Z,L_35
+	LD	A,(_ghostY)
+	LD	B,A
+	SEXT	HL
+	LD	L,B
+	LD	BC,HL
+	LD	DE,12
+	PUSH	DE
+	PUSH	DE
+	LD	A,(IX+-2)
+	UEXT	HL
+	LD	L,A
+	ADD	HL,BC
+	LD	A,12
+	CALL	__imul_b
+	PUSH	HL
+	LD	A,(_tetrominoX)
+	LD	B,A
+	SEXT	HL
+	LD	L,B
+	LD	BC,HL
+	LD	A,(IX+-1)
+	UEXT	HL
+	LD	L,A
+	ADD	HL,BC
+	LD	A,12
+	CALL	__imul_b
+	LD	IY,HL
+	LEA	BC,IY+100
+	PUSH	BC
+	CALL	_gfx_Rectangle
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+L_35:
+	INC	(IX+-2)
+L_36:
+	LD	A,(IX+-2)
+	CP	A,4
+	JR	C,L_34
+	INC	(IX+-1)
+L_39:
+	LD	A,(IX+-1)
+	CP	A,4
+	JR	C,L_37
+;  116		
+;  117		drawTetromino();
+	CALL	_drawTetromino
+;  118		
+;  119		drawString("Lines cleared:", 0, 0, 0, LEFT_JUSTIFIED, TOP_ALIGNED);
+	LD	A,(_TOP_ALIGNED)
+	LD	C,A
+	LD	A,(_LEFT_JUSTIFIED)
+	LD	B,0
+	PUSH	BC
+	LD	C,A
+	PUSH	BC
+	LD	BC,0
+	PUSH	BC
+	PUSH	BC
+	PUSH	BC
+	LD	BC,L__13
+	PUSH	BC
+	CALL	_drawString
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+;  120		drawUInt(linesCleared, 0, 0, 1, LEFT_JUSTIFIED, TOP_ALIGNED);
+	LD	A,(_TOP_ALIGNED)
+	LD	C,A
+	LD	A,(_LEFT_JUSTIFIED)
+	LD	B,0
+	PUSH	BC
+	LD	C,A
+	PUSH	BC
+	LD	BC,1
+	PUSH	BC
+	LD	A,(_linesCleared)
+	LD	BC,0
+	PUSH	BC
+	LD	C,A
+	LD	DE,0
+	PUSH	DE
+	LD	B,0
+	PUSH	BC
+	CALL	_drawUInt
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+;  121		
+;  122		drawString("Level:", 0, 0, 3, LEFT_JUSTIFIED, TOP_ALIGNED);
+	LD	A,(_TOP_ALIGNED)
+	LD	C,A
+	LD	A,(_LEFT_JUSTIFIED)
+	LD	B,0
+	PUSH	BC
+	LD	C,A
+	PUSH	BC
+	LD	BC,3
+	PUSH	BC
+	LD	BC,0
+	PUSH	BC
+	PUSH	BC
+	LD	BC,L__14
+	PUSH	BC
+	CALL	_drawString
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+;  123		drawUInt(level, 0, 0, 4, LEFT_JUSTIFIED, TOP_ALIGNED);
+	LD	A,(_TOP_ALIGNED)
+	LD	C,A
+	LD	A,(_LEFT_JUSTIFIED)
+	LD	B,0
+	PUSH	BC
+	LD	C,A
+	PUSH	BC
+	LD	BC,4
+	PUSH	BC
+	LD	A,(_level)
+	LD	BC,0
+	PUSH	BC
+	LD	C,A
+	LD	DE,0
+	PUSH	DE
+	LD	B,0
+	PUSH	BC
+	CALL	_drawUInt
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+;  124		
+;  125		drawString("Next:", 320 - 4 * TILE_WIDTH, 0, 0, RIGHT_JUSTIFIED, TOP_ALIGNED);
+	LD	A,(_TOP_ALIGNED)
+	LD	C,A
+	LD	A,(_RIGHT_JUSTIFIED)
+	LD	B,0
+	PUSH	BC
+	LD	C,A
+	PUSH	BC
+	LD	BC,0
+	PUSH	BC
+	PUSH	BC
+	LD	BC,16
+	PUSH	BC
+	LD	BC,L__15
+	PUSH	BC
+	CALL	_drawString
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+;  126		drawString("Saved:", 320 - 4 * TILE_WIDTH, 240, 0, RIGHT_JUSTIFIED, BOTTOM_ALIGNED);
+	LD	A,(_BOTTOM_ALIGNED)
+	LD	C,A
+	LD	A,(_RIGHT_JUSTIFIED)
+	LD	B,0
+	PUSH	BC
+	LD	C,A
+	PUSH	BC
+	LD	BC,0
+	PUSH	BC
+	LD	BC,240
+	PUSH	BC
+	LD	BC,16
+	PUSH	BC
+	LD	BC,L__16
+	PUSH	BC
+	CALL	_drawString
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+;  127		
+;  128		gfx_SetColor(MINO_COLORS[nextTetromino]);
+	LD	A,(_nextTetromino)
+	UEXT	HL
+	LD	L,A
+	LD	BC,_MINO_COLORS
+	ADD	HL,BC
+	LD	C,(HL)
+	LD	B,0
+	PUSH	BC
+	CALL	_gfx_SetColor
+	POP	BC
+;  129		for(ix = 0; ix < 4; ix++) {for(iy = 0; iy < 4; iy++) {if(ORIENTATIONS[nextTetromino][0][iy][ix]) {gfx_FillRectangle(320 - 4 * TILE_WIDTH + ix * TILE_WIDTH, iy * TILE_HEIGHT, TILE_WIDTH, TILE_HEIGHT);}}}
+	LD	(IX+-1),0
+	JR	L_49
+L_47:
+	LD	(IX+-2),0
+	JR	L_46
+L_44:
+	LD	A,(_nextTetromino)
+	UEXT	HL
+	LD	L,A
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,HL
+	LD	BC,_ORIENTATIONS
+	ADD	HL,BC
+	LD	BC,HL
+	LD	A,(IX+-2)
+	UEXT	HL
+	LD	L,A
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,BC
+	LD	BC,HL
+	LD	A,(IX+-1)
+	UEXT	HL
+	LD	L,A
+	ADD	HL,BC
+	LD	A,(HL)
+	OR	A,A
+	JR	Z,L_45
+	LD	BC,12
+	PUSH	BC
+	PUSH	BC
+	LD	A,(IX+-2)
+	UEXT	HL
+	LD	L,A
+	LD	A,12
+	CALL	__imul_b
+	PUSH	HL
+	LD	A,(IX+-1)
+	UEXT	HL
+	LD	L,A
+	LD	A,12
+	CALL	__imul_b
+	LD	BC,272
+	ADD	HL,BC
+	PUSH	HL
+	CALL	_gfx_FillRectangle
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+L_45:
+	INC	(IX+-2)
+L_46:
+	LD	A,(IX+-2)
+	CP	A,4
+	JR	C,L_44
+	INC	(IX+-1)
+L_49:
+	LD	A,(IX+-1)
+	CP	A,4
+	JR	C,L_47
+;  130		
+;  131		if(savedTetromino != -1) {
+	LD	A,(_savedTetromino)
+	CP	A,-1
+	JR	Z,L_61
+;  132			gfx_SetColor(MINO_COLORS[savedTetromino]);
+	LD	A,(_savedTetromino)
+	LD	B,A
+	SEXT	HL
+	LD	L,B
+	LD	BC,_MINO_COLORS
+	ADD	HL,BC
+	LD	C,(HL)
+	LD	B,0
+	PUSH	BC
+	CALL	_gfx_SetColor
+	POP	BC
+;  133			for(ix = 0; ix < 4; ix++) {for(iy = 0; iy < 4; iy++) {if(ORIENTATIONS[savedTetromino][0][iy][ix]) {gfx_FillRectangle(320 - 4 * TILE_WIDTH + ix * TILE_WIDTH, 240 - 4 * TILE_WIDTH + iy * TILE_HEIGHT, TILE_WIDTH, TILE_HEIGHT);}}}
+	LD	(IX+-1),0
+	JR	L_58
+L_56:
+	LD	(IX+-2),0
+	JR	L_55
+L_53:
+	LD	A,(_savedTetromino)
+	LD	B,A
+	SEXT	HL
+	LD	L,B
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,HL
+	LD	BC,_ORIENTATIONS
+	ADD	HL,BC
+	LD	BC,HL
+	LD	A,(IX+-2)
+	UEXT	HL
+	LD	L,A
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,BC
+	LD	BC,HL
+	LD	A,(IX+-1)
+	UEXT	HL
+	LD	L,A
+	ADD	HL,BC
+	LD	A,(HL)
+	OR	A,A
+	JR	Z,L_54
+	LD	BC,192
+	LD	DE,12
+	PUSH	DE
+	PUSH	DE
+	LD	A,(IX+-2)
+	UEXT	HL
+	LD	L,A
+	LD	A,12
+	CALL	__imul_b
+	ADD	HL,BC
+	PUSH	HL
+	LD	A,(IX+-1)
+	UEXT	HL
+	LD	L,A
+	LD	A,12
+	CALL	__imul_b
+	LD	BC,272
+	ADD	HL,BC
+	PUSH	HL
+	CALL	_gfx_FillRectangle
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+L_54:
+	INC	(IX+-2)
+L_55:
+	LD	A,(IX+-2)
+	CP	A,4
+	JR	C,L_53
+	INC	(IX+-1)
+L_58:
+	LD	A,(IX+-1)
+	CP	A,4
+	JR	C,L_56
+;  134		}
+L_61:
+;  135		
+;  136		drawString("FPS", 0, 240, -1, LEFT_JUSTIFIED, BOTTOM_ALIGNED);
+	LD	A,(_BOTTOM_ALIGNED)
+	LD	C,A
+	LD	A,(_LEFT_JUSTIFIED)
+	LD	B,0
+	PUSH	BC
+	LD	C,A
+	PUSH	BC
+	LD	BC,16777215
+	PUSH	BC
+	LD	BC,240
+	PUSH	BC
+	LD	BC,0
+	PUSH	BC
+	LD	BC,L__24
+	PUSH	BC
+	CALL	_drawString
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+;  137		drawULong(realFPS, 0, 240, 0, LEFT_JUSTIFIED, BOTTOM_ALIGNED);
+	LD	A,(_BOTTOM_ALIGNED)
+	LD	C,A
+	LD	A,(_LEFT_JUSTIFIED)
+	LD	B,0
+	PUSH	BC
+	LD	C,A
+	PUSH	BC
+	LD	BC,0
+	PUSH	BC
+	LD	A,(_realFPS+3)
+	LD	BC,240
+	PUSH	BC
+	LD	C,A
+	LD	DE,0
+	PUSH	DE
+	LD	B,0
+	PUSH	BC
+	LD	BC,(_realFPS)
+	PUSH	BC
+	CALL	_drawULong
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+;  138		
+;  139		gfx_Blit(gfx_buffer);
+	LD	BC,1
+	PUSH	BC
+	CALL	_gfx_Blit
+	POP	BC
+	LD	SP,IX
+	POP	IX
+	RET	
+
+
+;**************************** _drawGame ***************************
+;Name                         Addr/Register   Size   Type
+;_gfx_Blit                           IMPORT  -----   function
+;_realFPS                            IMPORT      4   variable
+;_drawULong                          IMPORT  -----   function
+;_savedTetromino                     STATIC      1   variable
+;_gfx_FillRectangle                  IMPORT  -----   function
+;_nextTetromino                      STATIC      1   variable
+;_MINO_COLORS                        IMPORT      7   variable
+;_BOTTOM_ALIGNED                     IMPORT      1   variable
+;_RIGHT_JUSTIFIED                    IMPORT      1   variable
+;_level                              STATIC      1   variable
+;_linesCleared                       STATIC      1   variable
+;_drawUInt                           IMPORT  -----   function
+;_LEFT_JUSTIFIED                     IMPORT      1   variable
+;_TOP_ALIGNED                        IMPORT      1   variable
+;_drawString                         IMPORT  -----   function
+;_drawTetromino                      IMPORT  -----   function
+;_tetrominoX                         IMPORT      1   variable
+;_ghostY                             STATIC      1   variable
+;_gfx_Rectangle                      IMPORT  -----   function
+;_tetrominoOrientation               IMPORT      1   variable
+;_tetrominoType                      IMPORT      1   variable
+;_ORIENTATIONS                       IMPORT    448   variable
+;_gfx_SetColor                       IMPORT  -----   function
+;_drawField                          IMPORT  -----   function
+;_COLOR_BG                           IMPORT      1   variable
+;_gfx_FillScreen                     IMPORT  -----   function
+;iy                                    IX-2      1   variable
+;ix                                    IX-1      1   variable
+
+
+; Stack Frame Size: 8 (bytes)
+;       Spill Code: 0 (instruction)
+
+
+	SEGMENT STRSECT
+L__13:
+	DB	"Lines cleared:"
+	DB	0
+L__14:
+	DB	"Level:"
+	DB	0
+L__15:
+	DB	"Next:"
+	DB	0
+L__16:
+	DB	"Saved:"
+	DB	0
+L__24:
+	DB	"FPS"
+	DB	0
+	XREF _drawULong:ROM
+	XREF _drawUInt:ROM
+	XREF _drawString:ROM
+	XREF _BOTTOM_ALIGNED:ROM
+	XREF _TOP_ALIGNED:ROM
+	XREF _RIGHT_JUSTIFIED:ROM
+	XREF _LEFT_JUSTIFIED:ROM
+	XREF _ORIENTATIONS:ROM
+	XREF _MINO_COLORS:ROM
+	XREF _checkCollision:ROM
+	XREF _generateTetromino:ROM
+	XREF _drawTetromino:ROM
+	XREF _updateTetromino:ROM
+	XREF _gravitySpeed:ROM
+	XREF _gravityTimer:ROM
+	XREF _tetrominoOrientation:ROM
+	XREF _tetrominoY:ROM
+	XREF _tetrominoX:ROM
+	XREF _tetrominoType:ROM
+	XREF _GRAVITY_START:ROM
+	XREF _drawField:ROM
+	XREF _updateField:ROM
+	XREF _initField:ROM
+	XREF _changeState:ROM
+	XREF _keyClearReady:ROM
+	XREF _keyDelReady:ROM
+	XREF _keyClear:ROM
+	XREF _keyDel:ROM
+	XREF _realFPS:ROM
+	XREF _COLOR_BG:ROM
+	XREF _random:ROM
+	XREF _gfx_Blit:ROM
+	XREF _gfx_FillRectangle:ROM
+	XREF _gfx_Rectangle:ROM
+	XREF _gfx_FillScreen:ROM
+	XREF _gfx_SetColor:ROM
+	XREF _srand:ROM
+	XREF __frameset:ROM
+	XREF __imul_b:ROM
+	XDEF _drawGame
+	XDEF _updateGame
+	XDEF _initGame
+	XDEF _ghostY
+	XDEF _saved
+	XDEF _savedTetromino
+	XDEF _nextTetromino
+	XDEF _level
+	XDEF _linesCleared
+	XDEF _COLOR_GHOST
+	XDEF _TILE_HEIGHT
+	XDEF _TILE_WIDTH
+	XDEF _FIELD_HEIGHT
+	XDEF _FIELD_WIDTH
+	XDEF _BORDER_WIDTH
+	END

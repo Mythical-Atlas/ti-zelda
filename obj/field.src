@@ -1,0 +1,588 @@
+; Zilog eZ80 ANSI C Compiler Release 3.4
+; -optsize -noreduceopt -nomodsect -peephole -globalopt
+; -localcse -const=ROM 
+	FILE	"SRC\FIELD.C"
+	.assume ADL=1
+	SEGMENT TEXT
+_COLOR_FIELD:
+	DB	1
+_MINO_EMPTY:
+	DB	255
+_MINO_I:
+	DB	0
+_MINO_O:
+	DB	1
+_MINO_T:
+	DB	2
+_MINO_S:
+	DB	3
+_MINO_Z:
+	DB	4
+_MINO_J:
+	DB	5
+_MINO_L:
+	DB	6
+	SEGMENT BSS
+_minos:
+	DS	220
+;    1	#include "field.h"
+;    2	
+;    3	/*#include <tice.h>*/
+;    4	#include <graphx.h>
+;    5	/*#include <keypadc.h>
+;    6	#include <debug.h>
+;    7	#include <fileioc.h>
+;    8	#include <fontlibc.h>
+;    9	
+;   10	#include <stdio.h>
+;   11	#include <stdlib.h>
+;   12	#include <stddef.h>
+;   13	#include <stdint.h>*/
+;   14	#include <stdbool.h>
+;   15	
+;   16	#include <math.h>
+;   17	/*#include <string.h>
+;   18	#include <ctype.h>*/
+;   19	
+;   20	#include "tetromino.h"
+;   21	#include "tetrominoData.h"
+;   22	#include "game.h"
+;   23	#include "main.h"
+;   24	
+;   25	const uint8_t COLOR_FIELD = 0x01;
+;   26	
+;   27	const uint8_t MINO_EMPTY = -1;
+;   28	const uint8_t MINO_I = 0;
+;   29	const uint8_t MINO_O = 1;
+;   30	const uint8_t MINO_T = 2;
+;   31	const uint8_t MINO_S = 3;
+;   32	const uint8_t MINO_Z = 4;
+;   33	const uint8_t MINO_J = 5;
+;   34	const uint8_t MINO_L = 6;
+;   35	
+;   36	int8_t minos[22][10];
+	SEGMENT CODE
+;   37	
+;   38	void initField() {
+_initField:
+	LD	HL,-2
+	CALL	__frameset
+;   39		uint8_t ix;
+;   40		uint8_t iy;
+;   41		
+;   42		for(ix = 0; ix < 10; ix++) {for(iy = 0; iy < 22; iy++) {minos[iy][ix] = MINO_EMPTY;}}
+	LD	(IX+-1),0
+	JR	L_7
+L_5:
+	LD	(IX+-2),0
+	JR	L_4
+L_2:
+	LD	A,(IX+-2)
+	UEXT	HL
+	LD	L,A
+	LD	A,10
+	CALL	__imul_b
+	LD	A,(IX+-1)
+	LD	BC,_minos
+	ADD	HL,BC
+	LD	BC,HL
+	UEXT	HL
+	LD	L,A
+	ADD	HL,BC
+	LD	(HL),255
+	INC	(IX+-2)
+L_4:
+	LD	A,(IX+-2)
+	CP	A,22
+	JR	C,L_2
+	INC	(IX+-1)
+L_7:
+	LD	A,(IX+-1)
+	CP	A,10
+	JR	C,L_5
+;   43	}
+	LD	SP,IX
+	POP	IX
+	RET	
+
+
+;**************************** _initField ***************************
+;Name                         Addr/Register   Size   Type
+;_minos                              STATIC    220   variable
+;iy                                    IX-2      1   variable
+;ix                                    IX-1      1   variable
+
+
+; Stack Frame Size: 8 (bytes)
+;       Spill Code: 0 (instruction)
+
+
+;   44	void updateField() {
+_updateField:
+	LD	HL,-4
+	CALL	__frameset
+;   45		uint8_t ix;
+;   46		uint8_t iy;
+;   47		uint8_t i;
+;   48		bool success;
+;   49		
+;   50		for(iy = 0; iy < 22; iy++) {
+	LD	(IX+-2),0
+	JR	L_33
+L_31:
+;   51			success = true;
+	LD	(IX+-4),1
+;   52			
+;   53			for(ix = 0; ix < 10; ix++) {
+	LD	(IX+-1),0
+	JR	L_14
+L_12:
+;   54				if(minos[iy][ix] == -1) {
+	LD	A,(IX+-2)
+	UEXT	HL
+	LD	L,A
+	LD	A,10
+	CALL	__imul_b
+	LD	BC,_minos
+	ADD	HL,BC
+	LD	BC,HL
+	LD	A,(IX+-1)
+	UEXT	HL
+	LD	L,A
+	ADD	HL,BC
+	LD	A,(HL)
+	LD	B,A
+	SEXT	HL
+	LD	L,B
+	OR	A,A
+	LD	BC,16777215
+	SBC	HL,BC
+	JR	NZ,L_13
+;   55					success = false;
+	LD	(IX+-4),0
+;   56					break;
+	JR	L_30
+;   57				}
+;   58			}
+L_13:
+	INC	(IX+-1)
+L_14:
+	LD	A,(IX+-1)
+	CP	A,10
+	JR	C,L_12
+L_30:
+;   59			
+;   60			if(success) {
+	LD	A,(IX+-4)
+	OR	A,A
+	JR	Z,L_32
+;   61				for(ix = 0; ix < 10; ix++) {minos[iy][ix] = -1;}
+	LD	(IX+-1),0
+	JR	L_18
+L_16:
+	LD	A,(IX+-2)
+	UEXT	HL
+	LD	L,A
+	LD	A,10
+	CALL	__imul_b
+	LD	A,(IX+-1)
+	LD	BC,_minos
+	ADD	HL,BC
+	LD	BC,HL
+	UEXT	HL
+	LD	L,A
+	ADD	HL,BC
+	LD	(HL),255
+	INC	(IX+-1)
+L_18:
+	LD	A,(IX+-1)
+	CP	A,10
+	JR	C,L_16
+;   62				
+;   63				moveLinesDown(iy - 1);
+	LD	C,(IX+-2)
+	DEC	C
+	LD	B,0
+	PUSH	BC
+	CALL	_moveLinesDown
+	POP	BC
+;   64				
+;   65				linesCleared++;
+	LD	A,(_linesCleared)
+	INC	A
+;   66				level = (uint8_t)floor(linesCleared / 10) + 1;
+	UEXT	HL
+	LD	L,A
+	LD	BC,10
+	CALL	__idivs
+	LD	BC,HL
+	LD	(_linesCleared),A
+	CALL	__itol
+	CALL	__ltof
+	LD	DE,BC
+	LD	C,A
+	LD	B,0
+	PUSH	BC
+	PUSH	DE
+	CALL	_floor
+	POP	BC
+	POP	BC
+	LD	A,E
+	LD	BC,HL
+	CALL	__ftol
+	INC	C
+	LD	A,C
+	LD	(_level),A
+;   67				if(level > 20) {level = 20;}
+	LD	A,20
+	LD	HL,_level
+	CP	A,(HL)
+	JR	NC,L_22
+	LD	(_level),A
+L_22:
+;   68				
+;   69				gravitySpeed = GRAVITY_START;
+	LD	A,(_GRAVITY_START)
+	LD	(_gravitySpeed),A
+;   70				for(i = 0; i < level; i++) {
+	LD	(IX+-3),0
+	JR	L_28
+L_26:
+;   71					if(gravitySpeed > GRAVITY_INTERVAL) {gravitySpeed -= GRAVITY_INTERVAL;}
+	LD	A,(_GRAVITY_INTERVAL)
+	LD	HL,_gravitySpeed
+	CP	A,(HL)
+	JR	NC,L_25
+	LD	BC,(_GRAVITY_INTERVAL)
+	LD	A,(_gravitySpeed)
+	SUB	A,C
+	LD	(_gravitySpeed),A
+;   72					else {gravitySpeed = 0;}
+	JR	L_27
+L_25:
+	XOR	A,A
+	LD	(_gravitySpeed),A
+;   73				}
+L_27:
+	INC	(IX+-3)
+L_28:
+	LD	A,(IX+-3)
+	LD	HL,_level
+	CP	A,(HL)
+	JR	C,L_26
+;   74			}
+;   75		}
+L_32:
+	INC	(IX+-2)
+L_33:
+	LD	A,(IX+-2)
+	CP	A,22
+	JR	C,L_31
+;   76	}
+	LD	SP,IX
+	POP	IX
+	RET	
+
+
+;**************************** _updateField ***************************
+;Name                         Addr/Register   Size   Type
+;_GRAVITY_INTERVAL                   IMPORT      1   variable
+;_gravitySpeed                       IMPORT      1   variable
+;_GRAVITY_START                      IMPORT      1   variable
+;_level                              IMPORT      1   variable
+;_floor                              IMPORT  -----   function
+;_linesCleared                       IMPORT      1   variable
+;_moveLinesDown                      IMPORT  -----   function
+;_minos                              STATIC    220   variable
+;success                               IX-4      1   variable
+;i                                     IX-3      1   variable
+;iy                                    IX-2      1   variable
+;ix                                    IX-1      1   variable
+
+
+; Stack Frame Size: 10 (bytes)
+;       Spill Code: 0 (instruction)
+
+
+;   77	void drawField() {
+_drawField:
+	LD	HL,-8
+	CALL	__frameset
+;   78		uint8_t ix;
+;   79		uint8_t iy;
+;   80		
+;   81		gfx_SetColor(COLOR_FIELD);
+	LD	BC,1
+	PUSH	BC
+	CALL	_gfx_SetColor
+	POP	BC
+;   82		gfx_FillRectangle(BORDER_WIDTH, 0, FIELD_WIDTH * TILE_WIDTH, FIELD_HEIGHT * TILE_HEIGHT);
+	LD	A,(_FIELD_HEIGHT)
+	UEXT	HL
+	LD	L,A
+	LD	DE,HL
+	LD	A,(_TILE_HEIGHT)
+	UEXT	HL
+	LD	L,A
+	LD	BC,HL
+	LD	HL,DE
+	CALL	__imuls
+	PUSH	HL
+	LD	A,(_FIELD_WIDTH)
+	UEXT	HL
+	LD	L,A
+	LD	DE,HL
+	LD	A,(_TILE_WIDTH)
+	UEXT	HL
+	LD	L,A
+	LD	BC,HL
+	LD	HL,DE
+	CALL	__imuls
+	PUSH	HL
+	LD	A,(_BORDER_WIDTH)
+	UEXT	HL
+	LD	BC,0
+	PUSH	BC
+	LD	L,A
+	PUSH	HL
+	CALL	_gfx_FillRectangle
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+;   83		
+;   84		for(ix = 0; ix < 10; ix++) {
+	LD	(IX+-1),0
+	JR	L_43
+L_41:
+;   85			for(iy = 0; iy < 22; iy++) {
+	LD	(IX+-2),0
+	JR	L_40
+L_38:
+;   86				if(minos[iy][ix] != -1) {
+	LD	A,(IX+-2)
+	UEXT	HL
+	LD	L,A
+	LD	A,10
+	CALL	__imul_b
+	LD	BC,_minos
+	ADD	HL,BC
+	LD	(IX+-8),HL
+	LD	A,(IX+-1)
+	UEXT	HL
+	LD	L,A
+	LD	BC,(IX+-8)
+	ADD	HL,BC
+	LD	(IX+-5),HL
+	LD	A,(HL)
+	LD	B,A
+	SEXT	HL
+	LD	L,B
+	OR	A,A
+	LD	BC,16777215
+	SBC	HL,BC
+	JR	Z,L_39
+;   87					gfx_SetColor(MINO_COLORS[minos[iy][ix]]);
+	LD	HL,(IX+-5)
+	LD	A,(HL)
+	LD	B,A
+	SEXT	HL
+	LD	L,B
+	LD	BC,_MINO_COLORS
+	ADD	HL,BC
+	LD	C,(HL)
+	LD	B,0
+	PUSH	BC
+	CALL	_gfx_SetColor
+	POP	BC
+;   88					gfx_FillRectangle(BORDER_WIDTH + (ix) * TILE_WIDTH, (iy - 2) * TILE_HEIGHT, TILE_WIDTH, TILE_HEIGHT);
+	LD	A,(_TILE_HEIGHT)
+	UEXT	HL
+	LD	L,A
+	PUSH	HL
+	LD	A,(_TILE_WIDTH)
+	UEXT	HL
+	LD	L,A
+	PUSH	HL
+	LD	A,(IX+-2)
+	UEXT	HL
+	LD	L,A
+	LD	DE,HL
+	DEC	DE
+	DEC	DE
+	LD	A,(_TILE_HEIGHT)
+	UEXT	HL
+	LD	L,A
+	LD	A,(_TILE_WIDTH)
+	LD	BC,HL
+	LD	HL,DE
+	CALL	__imuls
+	PUSH	HL
+	UEXT	HL
+	LD	L,A
+	LD	DE,HL
+	LD	A,(IX+-1)
+	UEXT	HL
+	LD	L,A
+	LD	BC,HL
+	LD	HL,DE
+	CALL	__imuls
+	LD	BC,HL
+	LD	A,(_BORDER_WIDTH)
+	UEXT	HL
+	LD	L,A
+	ADD	HL,BC
+	PUSH	HL
+	CALL	_gfx_FillRectangle
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+;   89				}
+;   90			}
+L_39:
+	INC	(IX+-2)
+L_40:
+	LD	A,(IX+-2)
+	CP	A,22
+	JR	C,L_38
+	INC	(IX+-1)
+;   91		} 
+L_43:
+	LD	A,(IX+-1)
+	CP	A,10
+	JR	C,L_41
+;   92	}
+	LD	SP,IX
+	POP	IX
+	RET	
+
+
+;**************************** _drawField ***************************
+;Name                         Addr/Register   Size   Type
+;_MINO_COLORS                        IMPORT      7   variable
+;_minos                              STATIC    220   variable
+;_BORDER_WIDTH                       IMPORT      1   variable
+;_TILE_WIDTH                         IMPORT      1   variable
+;_FIELD_WIDTH                        IMPORT      1   variable
+;_TILE_HEIGHT                        IMPORT      1   variable
+;_FIELD_HEIGHT                       IMPORT      1   variable
+;_gfx_FillRectangle                  IMPORT  -----   function
+;_gfx_SetColor                       IMPORT  -----   function
+;G_0                                   IX-8      3   variable
+;G_1                                   IX-5      3   variable
+;iy                                    IX-2      1   variable
+;ix                                    IX-1      1   variable
+
+
+; Stack Frame Size: 14 (bytes)
+;       Spill Code: 0 (instruction)
+
+
+;   93	
+;   94	void moveLinesDown(uint8_t bottom) {
+_moveLinesDown:
+	LD	HL,-2
+	CALL	__frameset
+;   95		uint8_t ix;
+;   96		uint8_t iy;
+;   97		
+;   98		for(iy = bottom; iy > 0; iy--) {for(ix = 0; ix < 10; ix++) {minos[iy + 1][ix] = minos[iy][ix];}}
+	LD	A,(IX+6)
+	LD	(IX+-2),A
+	JR	L_52
+L_50:
+	LD	(IX+-1),0
+	JR	L_49
+L_47:
+	LD	A,(IX+-2)
+	UEXT	HL
+	LD	L,A
+	LD	A,10
+	CALL	__imul_b
+	LD	A,(IX+-1)
+	LD	BC,_minos
+	ADD	HL,BC
+	LD	BC,HL
+	UEXT	HL
+	LD	L,A
+	LD	A,(IX+-2)
+	ADD	HL,BC
+	LD	IY,HL
+	UEXT	HL
+	LD	L,A
+	LD	A,10
+	INC	HL
+	CALL	__imul_b
+	LD	A,(IX+-1)
+	LD	BC,_minos
+	ADD	HL,BC
+	LD	BC,HL
+	UEXT	HL
+	LD	L,A
+	ADD	HL,BC
+	LD	A,(IY)
+	LD	(HL),A
+	INC	(IX+-1)
+L_49:
+	LD	A,(IX+-1)
+	CP	A,10
+	JR	C,L_47
+	DEC	(IX+-2)
+L_52:
+	XOR	A,A
+	CP	A,(IX+-2)
+	JR	C,L_50
+	LD	SP,IX
+	POP	IX
+	RET	
+
+
+;**************************** _moveLinesDown ***************************
+;Name                         Addr/Register   Size   Type
+;_minos                              STATIC    220   variable
+;iy                                    IX-2      1   variable
+;ix                                    IX-1      1   variable
+;bottom                                IX+6      1   parameter
+
+
+; Stack Frame Size: 11 (bytes)
+;       Spill Code: 0 (instruction)
+
+
+	XREF _level:ROM
+	XREF _linesCleared:ROM
+	XREF _TILE_HEIGHT:ROM
+	XREF _TILE_WIDTH:ROM
+	XREF _FIELD_HEIGHT:ROM
+	XREF _FIELD_WIDTH:ROM
+	XREF _BORDER_WIDTH:ROM
+	XREF _MINO_COLORS:ROM
+	XREF _gravitySpeed:ROM
+	XREF _GRAVITY_INTERVAL:ROM
+	XREF _GRAVITY_START:ROM
+	XREF _floor:ROM
+	XREF _gfx_FillRectangle:ROM
+	XREF _gfx_SetColor:ROM
+	XREF __idivs:ROM
+	XREF __imuls:ROM
+	XREF __ftol:ROM
+	XREF __ltof:ROM
+	XREF __itol:ROM
+	XREF __frameset:ROM
+	XREF __imul_b:ROM
+	XDEF _moveLinesDown
+	XDEF _drawField
+	XDEF _updateField
+	XDEF _initField
+	XDEF _minos
+	XDEF _MINO_L
+	XDEF _MINO_J
+	XDEF _MINO_Z
+	XDEF _MINO_S
+	XDEF _MINO_T
+	XDEF _MINO_O
+	XDEF _MINO_I
+	XDEF _MINO_EMPTY
+	XDEF _COLOR_FIELD
+	END

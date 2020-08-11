@@ -1,0 +1,1723 @@
+; Zilog eZ80 ANSI C Compiler Release 3.4
+; -optsize -noreduceopt -nomodsect -peephole -globalopt
+; -localcse -const=ROM 
+	FILE	"SRC\TETROMINO.C"
+	.assume ADL=1
+	SEGMENT TEXT
+_MOVE_DELAY:
+	DB	5
+_MOVE_SPEED:
+	DB	1
+_DROP_DELAY:
+	DB	5
+_DROP_SPEED:
+	DB	1
+_PLACE_DELAY:
+	DB	5
+_GRAVITY_START:
+	DB	20
+_GRAVITY_INTERVAL:
+	DB	2
+	SEGMENT BSS
+_moveDelayTimer:
+	DS	1
+_moveTimer:
+	DS	1
+_moveDir:
+	DS	1
+_moveState:
+	DS	1
+_placing:
+	DS	1
+_tetrominoType:
+	DS	1
+_tetrominoX:
+	DS	1
+_tetrominoY:
+	DS	1
+_tetrominoW:
+	DS	1
+_tetrominoH:
+	DS	1
+_tetrominoOrientation:
+	DS	1
+_oldX:
+	DS	1
+_oldY:
+	DS	1
+_oldOrientation:
+	DS	1
+_gravityTimer:
+	DS	1
+_gravitySpeed:
+	DS	1
+_dropDelayTimer:
+	DS	1
+_dropTimer:
+	DS	1
+_dropState:
+	DS	1
+_placeTimer:
+	DS	1
+;    1	#include "tetromino.h"
+;    2	
+;    3	/*#include <tice.h>*/
+;    4	#include <graphx.h>
+;    5	/*#include <keypadc.h>
+;    6	#include <debug.h>
+;    7	#include <fileioc.h>
+;    8	#include <fontlibc.h>*/
+;    9	
+;   10	#include <stdio.h>
+;   11	/*#include <stdlib.h>
+;   12	#include <stddef.h>
+;   13	#include <stdint.h>
+;   14	#include <stdbool.h>
+;   15	
+;   16	#include <math.h>
+;   17	#include <string.h>
+;   18	#include <ctype.h>*/
+;   19	
+;   20	#include "main.h"
+;   21	#include "game.h"
+;   22	#include "field.h"
+;   23	#include "tetrominoData.h"
+;   24	
+;   25	const uint8_t MOVE_DELAY = 5;
+;   26	const uint8_t MOVE_SPEED = 1;
+;   27	
+;   28	const uint8_t DROP_DELAY = 5;
+;   29	const uint8_t DROP_SPEED = 1;
+;   30	const uint8_t PLACE_DELAY = 5;
+;   31	const uint8_t GRAVITY_START = 20;
+;   32	const uint8_t GRAVITY_INTERVAL = 2;
+;   33	
+;   34	uint8_t moveDelayTimer;
+;   35	uint8_t moveTimer;
+;   36	int8_t moveDir;
+;   37	uint8_t moveState;
+;   38	
+;   39	bool placing;
+;   40	
+;   41	uint8_t tetrominoType;
+;   42	int8_t tetrominoX;
+;   43	int8_t tetrominoY;
+;   44	uint8_t tetrominoW;
+;   45	uint8_t tetrominoH;
+;   46	uint8_t tetrominoOrientation;
+;   47	
+;   48	int8_t oldX;
+;   49	int8_t oldY;
+;   50	uint8_t oldOrientation;
+;   51	
+;   52	uint8_t gravityTimer;
+;   53	uint8_t gravitySpeed;
+;   54	uint8_t dropDelayTimer;
+;   55	uint8_t dropTimer;
+;   56	uint8_t dropState;
+;   57	uint8_t placeTimer;
+	SEGMENT CODE
+;   58	
+;   59	void initTetromino() {
+_initTetromino:
+;   60		moveDelayTimer = 0;
+	XOR	A,A
+	LD	(_moveDelayTimer),A
+;   61		moveTimer = 0;
+	XOR	A,A
+	LD	(_moveTimer),A
+;   62		moveDir = 0;
+	XOR	A,A
+	LD	(_moveDir),A
+;   63		moveState = 0;
+	XOR	A,A
+	LD	(_moveState),A
+;   64	
+;   65		placing = 0;
+	XOR	A,A
+	LD	(_placing),A
+;   66	
+;   67		tetrominoOrientation = 0;
+	XOR	A,A
+	LD	(_tetrominoOrientation),A
+;   68	
+;   69		dropDelayTimer = 0;
+	XOR	A,A
+	LD	(_dropDelayTimer),A
+;   70		dropTimer = 0;
+	XOR	A,A
+	LD	(_dropTimer),A
+;   71		dropState = 0;
+	XOR	A,A
+	LD	(_dropState),A
+;   72		placeTimer = 0;
+	XOR	A,A
+	LD	(_placeTimer),A
+;   73	}
+	RET	
+
+
+;**************************** _initTetromino ***************************
+;Name                         Addr/Register   Size   Type
+;_placeTimer                         STATIC      1   variable
+;_dropState                          STATIC      1   variable
+;_dropTimer                          STATIC      1   variable
+;_dropDelayTimer                     STATIC      1   variable
+;_tetrominoOrientation               STATIC      1   variable
+;_placing                            STATIC      1   variable
+;_moveState                          STATIC      1   variable
+;_moveDir                            STATIC      1   variable
+;_moveTimer                          STATIC      1   variable
+;_moveDelayTimer                     STATIC      1   variable
+
+
+; Stack Frame Size: 6 (bytes)
+;       Spill Code: 0 (instruction)
+
+
+;   74	
+;   75	void updateTetromino() {
+_updateTetromino:
+;   76		// move state + direction handling
+;   77		
+;   78		if(keyLeft && keyLeftReady || keyLeft && !keyRight || keyLeft && moveDir == -1) {
+	LD	A,(_keyLeft)
+	OR	A,A
+	JR	Z,L_3
+	LD	A,(_keyLeftReady)
+	OR	A,A
+	JR	NZ,L_7
+L_3:
+	LD	A,(_keyLeft)
+	OR	A,A
+	JR	Z,L_5
+	LD	A,(_keyRight)
+	OR	A,A
+	JR	Z,L_7
+L_5:
+	LD	A,(_keyLeft)
+	OR	A,A
+	JR	Z,L_15
+	LD	A,(_moveDir)
+	CP	A,-1
+	JR	NZ,L_15
+L_7:
+;   79			keyLeftReady = 0;
+	XOR	A,A
+	LD	(_keyLeftReady),A
+;   80			
+;   81			if(moveDir != -1) {
+	LD	A,(_moveDir)
+	CP	A,-1
+	JR	Z,L_15
+;   82				moveState = 0;
+	XOR	A,A
+	LD	(_moveState),A
+;   83				moveDir = -1;
+	LD	A,255
+	LD	(_moveDir),A
+;   84			}
+;   85		}
+L_15:
+;   86		
+;   87		if(keyRight && keyRightReady || keyRight && !keyLeft || keyRight && moveDir == 1) {
+	LD	A,(_keyRight)
+	OR	A,A
+	JR	Z,L_10
+	LD	A,(_keyRightReady)
+	OR	A,A
+	JR	NZ,L_14
+L_10:
+	LD	A,(_keyRight)
+	OR	A,A
+	JR	Z,L_12
+	LD	A,(_keyLeft)
+	OR	A,A
+	JR	Z,L_14
+L_12:
+	LD	A,(_keyRight)
+	OR	A,A
+	JR	Z,L_18
+	LD	A,(_moveDir)
+	CP	A,1
+	JR	NZ,L_18
+L_14:
+;   88			keyRightReady = 0;
+	XOR	A,A
+	LD	(_keyRightReady),A
+;   89			
+;   90			if(moveDir != 1) {
+	LD	A,(_moveDir)
+	CP	A,1
+	JR	Z,L_18
+;   91				moveState = 0;
+	XOR	A,A
+	LD	(_moveState),A
+;   92				moveDir = 1;
+	LD	A,1
+	LD	(_moveDir),A
+;   93			}
+;   94		}
+L_18:
+;   95		
+;   96		// stop moving if no buttons pressed
+;   97		if(!keyLeft && !keyRight) {
+	LD	A,(_keyLeft)
+	OR	A,A
+	JR	NZ,L_32
+	LD	A,(_keyRight)
+	OR	A,A
+	JR	NZ,L_32
+;   98			moveState = 0;
+	XOR	A,A
+	LD	(_moveState),A
+;   99			moveDir = 0;
+	XOR	A,A
+	LD	(_moveDir),A
+;  100		}
+L_32:
+;  101		
+;  102		// movement
+;  103		
+;  104		if(moveState == 0) { // initial move
+	LD	A,(_moveState)
+	OR	A,A
+	JR	NZ,L_31
+;  105			oldX = tetrominoX;
+	LD	A,(_tetrominoX)
+	LD	(_oldX),A
+;  106			oldY = tetrominoY;
+	LD	A,(_tetrominoY)
+	LD	(_oldY),A
+;  107			tetrominoX += moveDir;
+	LD	BC,(_moveDir)
+	LD	A,(_tetrominoX)
+	ADD	A,C
+	LD	(_tetrominoX),A
+;  108			wallKick();
+	CALL	_wallKick
+;  109			
+;  110			moveState = 1;
+	LD	A,1
+	LD	(_moveState),A
+;  111			moveDelayTimer = 0;
+	XOR	A,A
+	LD	(_moveDelayTimer),A
+;  112			
+;  113			if(moveDir != 0 && oldX != tetrominoX) {placeTimer = 0;}
+	LD	A,(_moveDir)
+	OR	A,A
+	JR	Z,L_36
+	LD	A,(_oldX)
+	LD	HL,_tetrominoX
+	CP	A,(HL)
+	JR	Z,L_36
+	XOR	A,A
+	LD	(_placeTimer),A
+;  114		}
+;  115		else if(moveState == 1) { // wait for continuous movement
+	JR	L_36
+L_31:
+	LD	A,(_moveState)
+	CP	A,1
+	JR	NZ,L_29
+;  116			moveDelayTimer++;
+	LD	A,(_moveDelayTimer)
+	INC	A
+;  117			if(moveDelayTimer >= MOVE_DELAY) {
+	CP	A,5
+	LD	(_moveDelayTimer),A
+	JR	C,L_36
+;  118				oldX = tetrominoX;
+	LD	A,(_tetrominoX)
+	LD	(_oldX),A
+;  119				oldY = tetrominoY;
+	LD	A,(_tetrominoY)
+	LD	(_oldY),A
+;  120				tetrominoX += moveDir;
+	LD	BC,(_moveDir)
+	LD	A,(_tetrominoX)
+	ADD	A,C
+	LD	(_tetrominoX),A
+;  121				wallKick();
+	CALL	_wallKick
+;  122				
+;  123				moveState = 2;
+	LD	A,2
+	LD	(_moveState),A
+;  124				moveTimer = 0;
+	XOR	A,A
+	LD	(_moveTimer),A
+;  125				
+;  126				if(oldX != tetrominoX) {placeTimer = 0;}
+	LD	A,(_oldX)
+	LD	HL,_tetrominoX
+	CP	A,(HL)
+	JR	Z,L_36
+	XOR	A,A
+	LD	(_placeTimer),A
+;  127			}
+;  128		}
+;  129		else if(moveState == 2) { // continuous movement
+	JR	L_36
+L_29:
+	LD	A,(_moveState)
+	CP	A,2
+	JR	NZ,L_36
+;  130			moveTimer++;
+	LD	A,(_moveTimer)
+	INC	A
+;  131			if(moveTimer >= MOVE_SPEED) {
+	CP	A,1
+	LD	(_moveTimer),A
+	JR	C,L_36
+;  132				oldX = tetrominoX;
+	LD	A,(_tetrominoX)
+	LD	(_oldX),A
+;  133				oldY = tetrominoY;
+	LD	A,(_tetrominoY)
+	LD	(_oldY),A
+;  134				tetrominoX += moveDir;
+	LD	BC,(_moveDir)
+	LD	A,(_tetrominoX)
+	ADD	A,C
+	LD	(_tetrominoX),A
+;  135				wallKick();
+	CALL	_wallKick
+;  136				
+;  137				moveTimer = 0;
+	XOR	A,A
+	LD	(_moveTimer),A
+;  138				
+;  139				if(oldX != tetrominoX) {placeTimer = 0;}
+	LD	A,(_oldX)
+	LD	HL,_tetrominoX
+	CP	A,(HL)
+	JR	Z,L_36
+	XOR	A,A
+	LD	(_placeTimer),A
+;  140			}
+;  141		}
+L_36:
+;  142		
+;  143		// fast drop state handling
+;  144		
+;  145		if(keyDown && keyDownReady && dropState == 0) {
+	LD	A,(_keyDown)
+	OR	A,A
+	JR	Z,L_40
+	LD	A,(_keyDownReady)
+	OR	A,A
+	JR	Z,L_40
+	LD	A,(_dropState)
+	OR	A,A
+	JR	NZ,L_40
+;  146			keyDownReady = 0;
+	XOR	A,A
+	LD	(_keyDownReady),A
+;  147			dropState = 1;
+	LD	A,1
+	LD	(_dropState),A
+;  148		}
+L_40:
+;  149		if(keyDown && keyDownReady && placing) {
+	LD	A,(_keyDown)
+	OR	A,A
+	JR	Z,L_43
+	LD	A,(_keyDownReady)
+	OR	A,A
+	JR	Z,L_43
+	LD	A,(_placing)
+	OR	A,A
+	JR	Z,L_43
+;  150			keyDownReady = 0;
+	XOR	A,A
+	LD	(_keyDownReady),A
+;  151			placing = 0;
+	XOR	A,A
+	LD	(_placing),A
+;  152			
+;  153			placeTetromino();
+	CALL	_placeTetromino
+;  154			generateTetromino();
+	CALL	_generateTetromino
+;  155		}
+L_43:
+;  156		
+;  157		// stop fast dropping if no buttons pressed
+;  158		if(!keyDown && dropState != 0) {
+	LD	A,(_keyDown)
+	OR	A,A
+	JR	NZ,L_50
+	LD	A,(_dropState)
+	OR	A,A
+	JR	Z,L_50
+;  159			dropState = 0;
+	XOR	A,A
+	LD	(_dropState),A
+;  160			gravityTimer = 0;
+	XOR	A,A
+	LD	(_gravityTimer),A
+;  161		}
+L_50:
+;  162		
+;  163		// rotation
+;  164		
+;  165		if(key2nd && key2ndReady) {
+	LD	A,(_key2nd)
+	OR	A,A
+	JR	Z,L_57
+	LD	A,(_key2ndReady)
+	OR	A,A
+	JR	Z,L_57
+;  166			key2ndReady = 0;
+	XOR	A,A
+	LD	(_key2ndReady),A
+;  167			
+;  168			oldOrientation = tetrominoOrientation;
+	LD	A,(_tetrominoOrientation)
+	LD	(_oldOrientation),A
+;  169			
+;  170			tetrominoOrientation--;
+	LD	A,(_tetrominoOrientation)
+	DEC	A
+	LD	(_tetrominoOrientation),A
+;  171			if(tetrominoOrientation > 3) {tetrominoOrientation = 3;}
+	LD	A,3
+	LD	HL,_tetrominoOrientation
+	CP	A,(HL)
+	JR	NC,L_47
+	LD	(_tetrominoOrientation),A
+L_47:
+;  172			
+;  173			getTetrominoSize();
+	CALL	_getTetrominoSize
+;  174			wallKick();
+	CALL	_wallKick
+;  175			
+;  176			// delay placement if rotation was successful
+;  177			if(oldOrientation != tetrominoOrientation) {
+	LD	A,(_oldOrientation)
+	LD	HL,_tetrominoOrientation
+	CP	A,(HL)
+	JR	Z,L_57
+;  178				placeTimer = 0;
+	XOR	A,A
+	LD	(_placeTimer),A
+;  179				oldOrientation = tetrominoOrientation;
+	LD	A,(_tetrominoOrientation)
+	LD	(_oldOrientation),A
+;  180			}
+;  181		}
+L_57:
+;  182		if(keyMode && keyModeReady) {
+	LD	A,(_keyMode)
+	OR	A,A
+	JR	Z,L_75
+	LD	A,(_keyModeReady)
+	OR	A,A
+	JR	Z,L_75
+;  183			keyModeReady = 0;
+	XOR	A,A
+	LD	(_keyModeReady),A
+;  184			
+;  185			oldOrientation = tetrominoOrientation;
+	LD	A,(_tetrominoOrientation)
+	LD	(_oldOrientation),A
+;  186			
+;  187			tetrominoOrientation++;
+	LD	A,(_tetrominoOrientation)
+	INC	A
+	LD	(_tetrominoOrientation),A
+;  188			if(tetrominoOrientation > 3) {tetrominoOrientation = 0;}
+	LD	A,3
+	LD	HL,_tetrominoOrientation
+	CP	A,(HL)
+	JR	NC,L_54
+	XOR	A,A
+	LD	(_tetrominoOrientation),A
+L_54:
+;  189			
+;  190			getTetrominoSize();
+	CALL	_getTetrominoSize
+;  191			wallKick();
+	CALL	_wallKick
+;  192			
+;  193			// delay placement if rotation was successful
+;  194			if(oldOrientation != tetrominoOrientation) {
+	LD	A,(_oldOrientation)
+	LD	HL,_tetrominoOrientation
+	CP	A,(HL)
+	JR	Z,L_75
+;  195				placeTimer = 0;
+	XOR	A,A
+	LD	(_placeTimer),A
+;  196				oldOrientation = tetrominoOrientation;
+	LD	A,(_tetrominoOrientation)
+	LD	(_oldOrientation),A
+;  197			}
+;  198		}
+L_75:
+;  199		
+;  200		// drop
+;  201		
+;  202		if(!placing) {
+	LD	A,(_placing)
+	OR	A,A
+	JR	NZ,L_91
+;  203			if(dropState == 0) { // regular gravity
+	LD	A,(_dropState)
+	OR	A,A
+	JR	NZ,L_73
+;  204				if(gravityTimer >= gravitySpeed) {
+	LD	A,(_gravityTimer)
+	LD	HL,_gravitySpeed
+	CP	A,(HL)
+	JR	C,L_61
+;  205					tetrominoY++;
+	LD	A,(_tetrominoY)
+	INC	A
+	LD	(_tetrominoY),A
+;  206					
+;  207					gravityTimer = 0;
+	XOR	A,A
+	LD	(_gravityTimer),A
+;  208				}
+L_61:
+;  209				gravityTimer++;
+	LD	A,(_gravityTimer)
+	INC	A
+	LD	(_gravityTimer),A
+;  210			}
+;  211			else if(dropState == 1) { // initial drop
+	JR	L_91
+L_73:
+	LD	A,(_dropState)
+	CP	A,1
+	JR	NZ,L_71
+;  212				tetrominoY++;
+	LD	A,(_tetrominoY)
+	INC	A
+	LD	(_tetrominoY),A
+;  213				
+;  214				dropState  = 2;
+	LD	A,2
+	LD	(_dropState),A
+;  215				dropDelayTimer = 0;
+	XOR	A,A
+	LD	(_dropDelayTimer),A
+;  216			}
+;  217			else if(dropState == 2) { // wait for fast drop
+	JR	L_91
+L_71:
+	LD	A,(_dropState)
+	CP	A,2
+	JR	NZ,L_69
+;  218				dropDelayTimer++;
+	LD	A,(_dropDelayTimer)
+	INC	A
+;  219				if(dropDelayTimer >= DROP_DELAY) {
+	CP	A,5
+	LD	(_dropDelayTimer),A
+	JR	C,L_91
+;  220					tetrominoY++;
+	LD	A,(_tetrominoY)
+	INC	A
+	LD	(_tetrominoY),A
+;  221					
+;  222					dropState = 3;
+	LD	A,3
+	LD	(_dropState),A
+;  223					dropTimer = 0;
+	XOR	A,A
+	LD	(_dropTimer),A
+;  224				}
+;  225			}
+;  226			else if(dropState == 3) { // fast drop
+	JR	L_91
+L_69:
+	LD	A,(_dropState)
+	CP	A,3
+	JR	NZ,L_91
+;  227				tetrominoY++;
+	LD	A,(_tetrominoY)
+	INC	A
+	LD	(_tetrominoY),A
+;  228			}
+;  229		}
+L_91:
+;  230		
+;  231		// place
+;  232		
+;  233		if(keyUp && keyUpReady) {
+	LD	A,(_keyUp)
+	OR	A,A
+	JR	Z,L_90
+	LD	A,(_keyUpReady)
+	OR	A,A
+	JR	Z,L_90
+;  234			keyUpReady = 0;
+	XOR	A,A
+	LD	(_keyUpReady),A
+;  235			
+;  236			while(!checkCollision()) {tetrominoY++;}
+	JR	L_78
+L_79:
+	LD	A,(_tetrominoY)
+	INC	A
+	LD	(_tetrominoY),A
+L_78:
+	CALL	_checkCollision
+	OR	A,A
+	JR	Z,L_79
+;  237			tetrominoY--;
+	LD	A,(_tetrominoY)
+	DEC	A
+	LD	(_tetrominoY),A
+;  238			
+;  239			placing = 0;
+	XOR	A,A
+	LD	(_placing),A
+;  240			placeTetromino();
+	CALL	_placeTetromino
+;  241			generateTetromino();
+	CALL	_generateTetromino
+;  242		}
+;  243		else {
+	JR	L_92
+L_90:
+;  244			checkPlacing();
+	CALL	_checkPlacing
+;  245			if(placing) {
+	LD	A,(_placing)
+	OR	A,A
+	JR	Z,L_92
+;  246				if(keyDown && placeTimer >= PLACE_DELAY - 1 || !keyDown && placeTimer >= gravitySpeed - 1) {
+	LD	A,(_keyDown)
+	OR	A,A
+	JR	Z,L_84
+	LD	A,(_placeTimer)
+	CP	A,4
+	JR	NC,L_85
+L_84:
+	LD	A,(_keyDown)
+	OR	A,A
+	JR	NZ,L_87
+	LD	A,(_gravitySpeed)
+	UEXT	HL
+	LD	L,A
+	LD	BC,HL
+	DEC	BC
+	LD	A,(_placeTimer)
+	UEXT	HL
+	LD	L,A
+	OR	A,A
+	SBC	HL,BC
+	JP	M,L_87
+L_85:
+;  247					placing = 0;
+	XOR	A,A
+	LD	(_placing),A
+;  248					placeTetromino();
+	CALL	_placeTetromino
+;  249					generateTetromino();
+	CALL	_generateTetromino
+;  250				}
+L_87:
+;  251				placeTimer++;
+	LD	A,(_placeTimer)
+	INC	A
+	LD	(_placeTimer),A
+;  252			}
+;  253		}
+;  254	}
+L_92:
+	RET	
+
+
+;**************************** _updateTetromino ***************************
+;Name                         Addr/Register   Size   Type
+;_checkPlacing                       IMPORT  -----   function
+;_checkCollision                     IMPORT  -----   function
+;_keyUpReady                         IMPORT      1   variable
+;_keyUp                              IMPORT      1   variable
+;_dropTimer                          STATIC      1   variable
+;_dropDelayTimer                     STATIC      1   variable
+;_gravitySpeed                       STATIC      1   variable
+;_keyModeReady                       IMPORT      1   variable
+;_keyMode                            IMPORT      1   variable
+;_getTetrominoSize                   IMPORT  -----   function
+;_oldOrientation                     STATIC      1   variable
+;_tetrominoOrientation               STATIC      1   variable
+;_key2ndReady                        IMPORT      1   variable
+;_key2nd                             IMPORT      1   variable
+;_gravityTimer                       STATIC      1   variable
+;_generateTetromino                  IMPORT  -----   function
+;_placeTetromino                     IMPORT  -----   function
+;_placing                            STATIC      1   variable
+;_dropState                          STATIC      1   variable
+;_keyDownReady                       IMPORT      1   variable
+;_keyDown                            IMPORT      1   variable
+;_moveTimer                          STATIC      1   variable
+;_placeTimer                         STATIC      1   variable
+;_moveDelayTimer                     STATIC      1   variable
+;_wallKick                           IMPORT  -----   function
+;_oldY                               STATIC      1   variable
+;_tetrominoY                         STATIC      1   variable
+;_oldX                               STATIC      1   variable
+;_tetrominoX                         STATIC      1   variable
+;_keyRightReady                      IMPORT      1   variable
+;_moveState                          STATIC      1   variable
+;_moveDir                            STATIC      1   variable
+;_keyRight                           IMPORT      1   variable
+;_keyLeftReady                       IMPORT      1   variable
+;_keyLeft                            IMPORT      1   variable
+
+
+; Stack Frame Size: 6 (bytes)
+;       Spill Code: 0 (instruction)
+
+
+;  255	void drawTetromino() {
+_drawTetromino:
+	LD	HL,-3
+	CALL	__frameset
+;  256		uint8_t ix, iy;
+;  257		
+;  258		gfx_SetColor(MINO_COLORS[tetrominoType]);
+	LD	A,(_tetrominoType)
+	UEXT	HL
+	LD	L,A
+	LD	BC,_MINO_COLORS
+	ADD	HL,BC
+	LD	C,(HL)
+	LD	B,0
+	PUSH	BC
+	CALL	_gfx_SetColor
+	POP	BC
+;  259		for(ix = 0; ix < 4; ix++) {for(iy = 0; iy < 4; iy++) {if(ORIENTATIONS[tetrominoType][tetrominoOrientation][iy][ix]) {gfx_FillRectangle(BORDER_WIDTH + (tetrominoX + ix) * TILE_WIDTH, (tetrominoY + iy) * TILE_HEIGHT, TILE_WIDTH, TILE_HEIGHT);}}}
+	LD	(IX+-1),0
+	JR	L_101
+L_99:
+	LD	(IX+-2),0
+	JR	L_98
+L_96:
+	LD	A,(_tetrominoType)
+	UEXT	HL
+	LD	L,A
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,HL
+	LD	BC,_ORIENTATIONS
+	ADD	HL,BC
+	LD	BC,HL
+	LD	A,(_tetrominoOrientation)
+	UEXT	HL
+	LD	L,A
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,BC
+	LD	BC,HL
+	LD	A,(IX+-2)
+	UEXT	HL
+	LD	L,A
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,BC
+	LD	BC,HL
+	LD	A,(IX+-1)
+	UEXT	HL
+	LD	L,A
+	ADD	HL,BC
+	LD	A,(HL)
+	OR	A,A
+	JR	Z,L_97
+	LD	A,(_TILE_HEIGHT)
+	UEXT	HL
+	LD	L,A
+	PUSH	HL
+	LD	A,(_TILE_WIDTH)
+	UEXT	HL
+	LD	L,A
+	PUSH	HL
+	LD	A,(_tetrominoY)
+	LD	B,A
+	SEXT	HL
+	LD	L,B
+	LD	BC,HL
+	LD	A,(IX+-2)
+	UEXT	HL
+	LD	L,A
+	ADD	HL,BC
+	LD	DE,HL
+	LD	A,(_TILE_HEIGHT)
+	UEXT	HL
+	LD	L,A
+	LD	A,(_tetrominoX)
+	LD	(IX+-3),A
+	LD	BC,HL
+	LD	HL,DE
+	CALL	__imuls
+	PUSH	HL
+	SEXT	HL
+	LD	L,(IX+-3)
+	LD	BC,HL
+	LD	A,(IX+-1)
+	UEXT	HL
+	LD	L,A
+	ADD	HL,BC
+	LD	DE,HL
+	LD	A,(_TILE_WIDTH)
+	UEXT	HL
+	LD	L,A
+	LD	BC,HL
+	LD	HL,DE
+	CALL	__imuls
+	LD	BC,HL
+	LD	A,(_BORDER_WIDTH)
+	UEXT	HL
+	LD	L,A
+	ADD	HL,BC
+	PUSH	HL
+	CALL	_gfx_FillRectangle
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+L_97:
+	INC	(IX+-2)
+L_98:
+	LD	A,(IX+-2)
+	CP	A,4
+	JR	C,L_96
+	INC	(IX+-1)
+L_101:
+	LD	A,(IX+-1)
+	CP	A,4
+	JR	C,L_99
+;  260	}
+	LD	SP,IX
+	POP	IX
+	RET	
+
+
+;**************************** _drawTetromino ***************************
+;Name                         Addr/Register   Size   Type
+;_BORDER_WIDTH                       IMPORT      1   variable
+;_tetrominoX                         STATIC      1   variable
+;_tetrominoY                         STATIC      1   variable
+;_TILE_WIDTH                         IMPORT      1   variable
+;_TILE_HEIGHT                        IMPORT      1   variable
+;_gfx_FillRectangle                  IMPORT  -----   function
+;_tetrominoOrientation               STATIC      1   variable
+;_ORIENTATIONS                       IMPORT    448   variable
+;_tetrominoType                      STATIC      1   variable
+;_MINO_COLORS                        IMPORT      7   variable
+;_gfx_SetColor                       IMPORT  -----   function
+;iy                                    IX-2      1   variable
+;ix                                    IX-1      1   variable
+
+
+; Stack Frame Size: 9 (bytes)
+;       Spill Code: 0 (instruction)
+
+
+;  261	
+;  262	void checkPlacing() {
+_checkPlacing:
+	LD	HL,-1
+	CALL	__frameset
+;  263		int8_t oy = tetrominoY;
+	LD	A,(_tetrominoY)
+	LD	(IX+-1),A
+;  264		
+;  265		tetrominoY++;
+	LD	A,(_tetrominoY)
+	INC	A
+	LD	(_tetrominoY),A
+;  266		
+;  267		if(checkCollision()) {
+	CALL	_checkCollision
+	OR	A,A
+	JR	Z,L_107
+;  268			tetrominoY = oy;
+	LD	A,(IX+-1)
+	LD	(_tetrominoY),A
+;  269			if(!placing) {placeTimer = 0;}
+	LD	A,(_placing)
+	OR	A,A
+	JR	NZ,L_105
+	XOR	A,A
+	LD	(_placeTimer),A
+L_105:
+;  270			placing = 1;
+	LD	A,1
+	LD	(_placing),A
+;  271		}
+;  272		else {
+	JR	L_108
+L_107:
+;  273			tetrominoY = oy;
+	LD	A,(IX+-1)
+	LD	(_tetrominoY),A
+;  274			placing = 0;
+	XOR	A,A
+	LD	(_placing),A
+;  275		}
+;  276	}
+L_108:
+	LD	SP,IX
+	POP	IX
+	RET	
+
+
+;**************************** _checkPlacing ***************************
+;Name                         Addr/Register   Size   Type
+;_placeTimer                         STATIC      1   variable
+;_placing                            STATIC      1   variable
+;_checkCollision                     IMPORT  -----   function
+;_tetrominoY                         STATIC      1   variable
+;oy                                    IX-1      1   variable
+
+
+; Stack Frame Size: 7 (bytes)
+;       Spill Code: 0 (instruction)
+
+
+;  277	void placeTetromino() {
+_placeTetromino:
+	LD	HL,-4
+	CALL	__frameset
+;  278		uint8_t ix;
+;  279		uint8_t iy;
+;  280		uint8_t x;
+;  281		uint8_t y;
+;  282		
+;  283		saved = 0;
+	XOR	A,A
+	LD	(_saved),A
+;  284		
+;  285		for(ix = 0; ix < 4; ix++) {
+	LD	(IX+-1),0
+	JR	L_117
+L_115:
+;  286			for(iy = 0; iy < 4; iy++) {
+	LD	(IX+-2),0
+	JR	L_114
+L_112:
+;  287				x = tetrominoX + ix;
+	LD	A,(_tetrominoX)
+	ADD	A,(IX+-1)
+	LD	(IX+-3),A
+;  288				y = tetrominoY + 2 + iy;
+	LD	A,(_tetrominoY)
+	INC	A
+	INC	A
+	ADD	A,(IX+-2)
+	LD	(IX+-4),A
+;  289				
+;  290				if(ORIENTATIONS[tetrominoType][tetrominoOrientation][iy][ix]) {minos[y][x] = tetrominoType;}
+	LD	A,(_tetrominoType)
+	UEXT	HL
+	LD	L,A
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,HL
+	LD	BC,_ORIENTATIONS
+	ADD	HL,BC
+	LD	BC,HL
+	LD	A,(_tetrominoOrientation)
+	UEXT	HL
+	LD	L,A
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,BC
+	LD	BC,HL
+	LD	A,(IX+-2)
+	UEXT	HL
+	LD	L,A
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,BC
+	LD	BC,HL
+	LD	A,(IX+-1)
+	UEXT	HL
+	LD	L,A
+	ADD	HL,BC
+	LD	A,(HL)
+	OR	A,A
+	JR	Z,L_113
+	LD	A,(IX+-4)
+	UEXT	HL
+	LD	L,A
+	LD	A,10
+	CALL	__imul_b
+	LD	BC,_minos
+	ADD	HL,BC
+	LD	BC,HL
+	LD	A,(IX+-3)
+	UEXT	HL
+	LD	L,A
+	ADD	HL,BC
+	LD	A,(_tetrominoType)
+	LD	(HL),A
+;  291			}
+L_113:
+	INC	(IX+-2)
+L_114:
+	LD	A,(IX+-2)
+	CP	A,4
+	JR	C,L_112
+	INC	(IX+-1)
+;  292		}
+L_117:
+	LD	A,(IX+-1)
+	CP	A,4
+	JR	C,L_115
+;  293	}
+	LD	SP,IX
+	POP	IX
+	RET	
+
+
+;**************************** _placeTetromino ***************************
+;Name                         Addr/Register   Size   Type
+;_minos                              IMPORT    220   variable
+;_tetrominoOrientation               STATIC      1   variable
+;_tetrominoType                      STATIC      1   variable
+;_ORIENTATIONS                       IMPORT    448   variable
+;_tetrominoY                         STATIC      1   variable
+;_tetrominoX                         STATIC      1   variable
+;_saved                              IMPORT      1   variable
+;y                                     IX-4      1   variable
+;x                                     IX-3      1   variable
+;iy                                    IX-2      1   variable
+;ix                                    IX-1      1   variable
+
+
+; Stack Frame Size: 10 (bytes)
+;       Spill Code: 0 (instruction)
+
+
+;  294	void generateTetromino() {
+_generateTetromino:
+;  295		tetrominoType = nextTetromino;
+	LD	A,(_nextTetromino)
+	LD	(_tetrominoType),A
+;  296		
+;  297		srand(rtc_Time());
+	LD	BC,(15925316)
+	PUSH	BC
+	CALL	_srand
+	POP	BC
+;  298		nextTetromino = random();
+	CALL	_random
+	LD	BC,HL
+	LD	A,C
+	LD	(_nextTetromino),A
+;  299		while(nextTetromino > 6) {nextTetromino = random();}
+	JR	L_119
+L_120:
+	CALL	_random
+	LD	BC,HL
+	LD	A,C
+	LD	(_nextTetromino),A
+L_119:
+	LD	A,6
+	LD	HL,_nextTetromino
+	CP	A,(HL)
+	JR	C,L_120
+;  300		
+;  301		tetrominoX = 3;
+	LD	A,3
+	LD	(_tetrominoX),A
+;  302		tetrominoY = -1;
+	LD	A,255
+	LD	(_tetrominoY),A
+;  303		tetrominoOrientation = 0;
+	XOR	A,A
+	LD	(_tetrominoOrientation),A
+;  304		
+;  305		oldX = tetrominoX;
+	LD	A,3
+	LD	(_oldX),A
+;  306		oldY = tetrominoY;
+	LD	A,255
+	LD	(_oldY),A
+;  307		oldOrientation = tetrominoOrientation;
+	XOR	A,A
+	LD	(_oldOrientation),A
+;  308		
+;  309		getTetrominoSize();
+	CALL	_getTetrominoSize
+;  310		
+;  311		gravityTimer = 0;
+	XOR	A,A
+	LD	(_gravityTimer),A
+;  312		
+;  313		if(checkCollision()) {changeState(2);}
+	CALL	_checkCollision
+	OR	A,A
+	JR	Z,L_123
+	LD	BC,2
+	PUSH	BC
+	CALL	_changeState
+	POP	BC
+;  314	}
+L_123:
+	RET	
+
+
+;**************************** _generateTetromino ***************************
+;Name                         Addr/Register   Size   Type
+;_changeState                        IMPORT  -----   function
+;_checkCollision                     IMPORT  -----   function
+;_gravityTimer                       STATIC      1   variable
+;_getTetrominoSize                   IMPORT  -----   function
+;_oldOrientation                     STATIC      1   variable
+;_oldY                               STATIC      1   variable
+;_oldX                               STATIC      1   variable
+;_tetrominoOrientation               STATIC      1   variable
+;_tetrominoY                         STATIC      1   variable
+;_tetrominoX                         STATIC      1   variable
+;_random                             IMPORT  -----   function
+;_srand                              IMPORT  -----   function
+;_tetrominoType                      STATIC      1   variable
+;_nextTetromino                      IMPORT      1   variable
+
+
+; Stack Frame Size: 6 (bytes)
+;       Spill Code: 0 (instruction)
+
+
+;  315	void getTetrominoSize() {
+_getTetrominoSize:
+;  316		tetrominoW = WIDTHS[tetrominoType][tetrominoOrientation];
+	LD	A,(_tetrominoType)
+	UEXT	HL
+	LD	L,A
+	ADD	HL,HL
+	ADD	HL,HL
+	LD	BC,HL
+	LD	HL,BC
+	LD	DE,_WIDTHS
+	ADD	HL,DE
+	LD	DE,HL
+	LD	A,(_tetrominoOrientation)
+	UEXT	HL
+	LD	L,A
+	ADD	HL,DE
+	LD	A,(HL)
+	LD	(_tetrominoW),A
+;  317		tetrominoH = HEIGHTS[tetrominoType][tetrominoOrientation];
+	LD	HL,BC
+	LD	A,(_tetrominoOrientation)
+	LD	BC,_HEIGHTS
+	ADD	HL,BC
+	LD	BC,HL
+	UEXT	HL
+	LD	L,A
+	ADD	HL,BC
+	LD	A,(HL)
+	LD	(_tetrominoH),A
+;  318	}
+	RET	
+
+
+;**************************** _getTetrominoSize ***************************
+;Name                         Addr/Register   Size   Type
+;_tetrominoH                         STATIC      1   variable
+;_HEIGHTS                            IMPORT     28   variable
+;_tetrominoW                         STATIC      1   variable
+;_tetrominoOrientation               STATIC      1   variable
+;_WIDTHS                             IMPORT     28   variable
+;_tetrominoType                      STATIC      1   variable
+
+
+; Stack Frame Size: 6 (bytes)
+;       Spill Code: 0 (instruction)
+
+
+;  319	bool checkCollision() {
+_checkCollision:
+	LD	HL,-4
+	CALL	__frameset
+;  320		uint8_t ix;
+;  321		uint8_t iy;
+;  322		uint8_t x;
+;  323		uint8_t y;
+;  324		
+;  325		for(ix = 0; ix < 4; ix++) {
+	LD	(IX+-1),0
+	JR	L_137
+L_135:
+;  326			for(iy = 0; iy < 4; iy++) {
+	LD	(IX+-2),0
+	JR	L_134
+L_132:
+;  327				x = tetrominoX + ix;
+	LD	A,(_tetrominoX)
+	ADD	A,(IX+-1)
+	LD	(IX+-3),A
+;  328				y = tetrominoY + 2 + iy;
+	LD	A,(_tetrominoY)
+	INC	A
+	INC	A
+	ADD	A,(IX+-2)
+	LD	(IX+-4),A
+;  329				
+;  330				if(ORIENTATIONS[tetrominoType][tetrominoOrientation][iy][ix] && (minos[y][x] != -1 || x < 0 || x >= FIELD_WIDTH || y >= FIELD_HEIGHT + 2)) {return(1);}
+	LD	A,(_tetrominoType)
+	UEXT	HL
+	LD	L,A
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,HL
+	LD	BC,_ORIENTATIONS
+	ADD	HL,BC
+	LD	BC,HL
+	LD	A,(_tetrominoOrientation)
+	UEXT	HL
+	LD	L,A
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,BC
+	LD	BC,HL
+	LD	A,(IX+-2)
+	UEXT	HL
+	LD	L,A
+	ADD	HL,HL
+	ADD	HL,HL
+	ADD	HL,BC
+	LD	BC,HL
+	LD	A,(IX+-1)
+	UEXT	HL
+	LD	L,A
+	ADD	HL,BC
+	LD	A,(HL)
+	OR	A,A
+	JR	Z,L_133
+	LD	A,(IX+-4)
+	UEXT	HL
+	LD	L,A
+	LD	A,10
+	CALL	__imul_b
+	LD	BC,_minos
+	ADD	HL,BC
+	LD	BC,HL
+	LD	A,(IX+-3)
+	UEXT	HL
+	LD	L,A
+	ADD	HL,BC
+	LD	A,(HL)
+	LD	B,A
+	SEXT	HL
+	LD	L,B
+	OR	A,A
+	LD	BC,16777215
+	SBC	HL,BC
+	JR	NZ,L_131
+	LD	A,(IX+-3)
+	OR	A,A
+	JR	C,L_131
+	LD	A,(IX+-3)
+	LD	HL,_FIELD_WIDTH
+	CP	A,(HL)
+	JR	NC,L_131
+	LD	A,(_FIELD_HEIGHT)
+	UEXT	HL
+	LD	L,A
+	LD	BC,HL
+	INC	BC
+	INC	BC
+	LD	A,(IX+-4)
+	UEXT	HL
+	LD	L,A
+	OR	A,A
+	SBC	HL,BC
+	JP	M,L_133
+L_131:
+	LD	A,1
+	JR	L_139
+;  331			}
+L_133:
+	INC	(IX+-2)
+L_134:
+	LD	A,(IX+-2)
+	CP	A,4
+	JR	C,L_132
+	INC	(IX+-1)
+;  332		}
+L_137:
+	LD	A,(IX+-1)
+	CP	A,4
+	JR	C,L_135
+;  333		
+;  334		return(0);
+	XOR	A,A
+;  335	}
+L_139:
+	LD	SP,IX
+	POP	IX
+	RET	
+
+
+;**************************** _checkCollision ***************************
+;Name                         Addr/Register   Size   Type
+;_FIELD_HEIGHT                       IMPORT      1   variable
+;_FIELD_WIDTH                        IMPORT      1   variable
+;_minos                              IMPORT    220   variable
+;_tetrominoOrientation               STATIC      1   variable
+;_tetrominoType                      STATIC      1   variable
+;_ORIENTATIONS                       IMPORT    448   variable
+;_tetrominoY                         STATIC      1   variable
+;_tetrominoX                         STATIC      1   variable
+;y                                     IX-4      1   variable
+;x                                     IX-3      1   variable
+;iy                                    IX-2      1   variable
+;ix                                    IX-1      1   variable
+
+
+; Stack Frame Size: 10 (bytes)
+;       Spill Code: 0 (instruction)
+
+
+;  336	void wallKick() {
+_wallKick:
+	LD	HL,-17
+	CALL	__frameset
+;  337		int8_t ox = tetrominoX;
+	LD	A,(_tetrominoX)
+	LD	(IX+-3),A
+;  338		int8_t oy = tetrominoY;
+	LD	A,(_tetrominoY)
+	LD	(IX+-4),A
+;  339		uint8_t tx = 0;
+	LD	(IX+-1),0
+;  340		uint8_t ty;
+;  341		
+;  342		bool success = false;
+	LD	(IX+-5),0
+;  343		
+;  344		if(oldOrientation == tetrominoOrientation) {
+	LD	A,(_oldOrientation)
+	LD	HL,_tetrominoOrientation
+	CP	A,(HL)
+	JR	NZ,L_176
+;  345			if(checkCollision()) {
+	CALL	_checkCollision
+	OR	A,A
+	JR	Z,L_177
+;  346				tetrominoX = oldX;
+	LD	A,(_oldX)
+	LD	(_tetrominoX),A
+;  347				tetrominoY = oldY;
+	LD	A,(_oldY)
+	LD	(_tetrominoY),A
+;  348			}
+;  349		}
+;  350		else {
+	JR	L_177
+L_176:
+;  351			     if(oldOrientation == 0 && tetrominoOrientation == 1) {tx = 0;}
+	LD	A,(_oldOrientation)
+	OR	A,A
+	JR	NZ,L_163
+	LD	A,(_tetrominoOrientation)
+	CP	A,1
+	JR	NZ,L_163
+	LD	(IX+-1),0
+;  352			else if(oldOrientation == 1 && tetrominoOrientation == 0) {tx = 1;}
+	JR	L_172
+L_163:
+	LD	A,(_oldOrientation)
+	CP	A,1
+	JR	NZ,L_161
+	LD	A,(_tetrominoOrientation)
+	OR	A,A
+	JR	NZ,L_161
+	LD	(IX+-1),1
+;  353			else if(oldOrientation == 1 && tetrominoOrientation == 2) {tx = 2;}
+	JR	L_172
+L_161:
+	LD	A,(_oldOrientation)
+	CP	A,1
+	JR	NZ,L_159
+	LD	A,(_tetrominoOrientation)
+	CP	A,2
+	JR	NZ,L_159
+	LD	(IX+-1),2
+;  354			else if(oldOrientation == 2 && tetrominoOrientation == 1) {tx = 3;}
+	JR	L_172
+L_159:
+	LD	A,(_oldOrientation)
+	CP	A,2
+	JR	NZ,L_157
+	LD	A,(_tetrominoOrientation)
+	CP	A,1
+	JR	NZ,L_157
+	LD	(IX+-1),3
+;  355			else if(oldOrientation == 2 && tetrominoOrientation == 3) {tx = 4;}
+	JR	L_172
+L_157:
+	LD	A,(_oldOrientation)
+	CP	A,2
+	JR	NZ,L_155
+	LD	A,(_tetrominoOrientation)
+	CP	A,3
+	JR	NZ,L_155
+	LD	(IX+-1),4
+;  356			else if(oldOrientation == 3 && tetrominoOrientation == 2) {tx = 5;}
+	JR	L_172
+L_155:
+	LD	A,(_oldOrientation)
+	CP	A,3
+	JR	NZ,L_153
+	LD	A,(_tetrominoOrientation)
+	CP	A,2
+	JR	NZ,L_153
+	LD	(IX+-1),5
+;  357			else if(oldOrientation == 3 && tetrominoOrientation == 0) {tx = 6;}
+	JR	L_172
+L_153:
+	LD	A,(_oldOrientation)
+	CP	A,3
+	JR	NZ,L_151
+	LD	A,(_tetrominoOrientation)
+	OR	A,A
+	JR	NZ,L_151
+	LD	(IX+-1),6
+;  358			else if(oldOrientation == 0 && tetrominoOrientation == 3) {tx = 7;}
+	JR	L_172
+L_151:
+	LD	A,(_oldOrientation)
+	OR	A,A
+	JR	NZ,L_172
+	LD	A,(_tetrominoOrientation)
+	CP	A,3
+	JR	NZ,L_172
+	LD	(IX+-1),7
+L_172:
+;  359			
+;  360			for(ty = 0; ty < 5; ty++) {
+	LD	(IX+-2),0
+	JR	L_171
+L_169:
+;  361				if(tetrominoType != MINO_I) {
+	LD	A,(_tetrominoType)
+	LD	HL,_MINO_I
+	CP	A,(HL)
+	JR	Z,L_168
+;  362					tetrominoX = ox + OTHER_TESTS[tx][ty][0];
+	LD	A,(IX+-1)
+	UEXT	HL
+	LD	L,A
+	LD	A,10
+	CALL	__imul_b
+	LD	BC,_OTHER_TESTS
+	ADD	HL,BC
+	LD	(IX+-11),HL
+	LD	A,(IX+-2)
+	UEXT	HL
+	LD	L,A
+	ADD	HL,HL
+	LD	BC,(IX+-11)
+	ADD	HL,BC
+	LD	(IX+-8),HL
+	LD	A,(HL)
+	ADD	A,(IX+-3)
+	LD	(_tetrominoX),A
+;  363					tetrominoY = oy - OTHER_TESTS[tx][ty][1];
+	LD	HL,(IX+-8)
+	INC	HL
+	LD	A,(IX+-4)
+	SUB	A,(HL)
+	LD	(_tetrominoY),A
+;  364					if(!checkCollision()) {
+	CALL	_checkCollision
+	OR	A,A
+	JR	NZ,L_170
+;  365						success = true;
+	LD	(IX+-5),1
+;  366						break;
+	JR	L_174
+;  367					}
+;  368				}
+;  369				else {
+L_168:
+;  370					tetrominoX = ox + I_TESTS[tx][ty][0];
+	LD	A,(IX+-1)
+	UEXT	HL
+	LD	L,A
+	LD	A,10
+	CALL	__imul_b
+	LD	BC,_I_TESTS
+	ADD	HL,BC
+	LD	(IX+-17),HL
+	LD	A,(IX+-2)
+	UEXT	HL
+	LD	L,A
+	ADD	HL,HL
+	LD	BC,(IX+-17)
+	ADD	HL,BC
+	LD	(IX+-14),HL
+	LD	A,(HL)
+	ADD	A,(IX+-3)
+	LD	(_tetrominoX),A
+;  371					tetrominoY = oy - I_TESTS[tx][ty][1];
+	LD	HL,(IX+-14)
+	INC	HL
+	LD	A,(IX+-4)
+	SUB	A,(HL)
+	LD	(_tetrominoY),A
+;  372					if(!checkCollision()) {
+	CALL	_checkCollision
+	OR	A,A
+	JR	NZ,L_170
+;  373						success = true;
+	LD	(IX+-5),1
+;  374						break;
+	JR	L_174
+;  375					}
+;  376				}
+;  377			}
+L_170:
+	INC	(IX+-2)
+L_171:
+	LD	A,(IX+-2)
+	CP	A,5
+	JR	C,L_169
+L_174:
+;  378			
+;  379			if(!success) {
+	LD	A,(IX+-5)
+	OR	A,A
+	JR	NZ,L_177
+;  380				tetrominoX = ox;
+	LD	A,(IX+-3)
+	LD	(_tetrominoX),A
+;  381				tetrominoY = oy;
+	LD	A,(IX+-4)
+	LD	(_tetrominoY),A
+;  382				tetrominoOrientation = oldOrientation;
+	LD	A,(_oldOrientation)
+	LD	(_tetrominoOrientation),A
+;  383			}
+;  384		}
+L_177:
+	LD	SP,IX
+	POP	IX
+	RET	
+
+
+;**************************** _wallKick ***************************
+;Name                         Addr/Register   Size   Type
+;_I_TESTS                            IMPORT     80   variable
+;_OTHER_TESTS                        IMPORT     80   variable
+;_MINO_I                             IMPORT      1   variable
+;_tetrominoType                      STATIC      1   variable
+;_oldY                               STATIC      1   variable
+;_oldX                               STATIC      1   variable
+;_checkCollision                     IMPORT  -----   function
+;_tetrominoOrientation               STATIC      1   variable
+;_oldOrientation                     STATIC      1   variable
+;_tetrominoY                         STATIC      1   variable
+;_tetrominoX                         STATIC      1   variable
+;success                               IX-5      1   variable
+;oy                                    IX-4      1   variable
+;ox                                    IX-3      1   variable
+;ty                                    IX-2      1   variable
+;tx                                    IX-1      1   variable
+
+
+; Stack Frame Size: 23 (bytes)
+;       Spill Code: 0 (instruction)
+
+
+	XREF _I_TESTS:ROM
+	XREF _OTHER_TESTS:ROM
+	XREF _HEIGHTS:ROM
+	XREF _WIDTHS:ROM
+	XREF _ORIENTATIONS:ROM
+	XREF _MINO_COLORS:ROM
+	XREF _minos:ROM
+	XREF _MINO_I:ROM
+	XREF _saved:ROM
+	XREF _nextTetromino:ROM
+	XREF _TILE_HEIGHT:ROM
+	XREF _TILE_WIDTH:ROM
+	XREF _FIELD_HEIGHT:ROM
+	XREF _FIELD_WIDTH:ROM
+	XREF _BORDER_WIDTH:ROM
+	XREF _changeState:ROM
+	XREF _keyModeReady:ROM
+	XREF _key2ndReady:ROM
+	XREF _keyRightReady:ROM
+	XREF _keyLeftReady:ROM
+	XREF _keyDownReady:ROM
+	XREF _keyUpReady:ROM
+	XREF _keyMode:ROM
+	XREF _key2nd:ROM
+	XREF _keyRight:ROM
+	XREF _keyLeft:ROM
+	XREF _keyDown:ROM
+	XREF _keyUp:ROM
+	XREF _random:ROM
+	XREF _gfx_FillRectangle:ROM
+	XREF _gfx_SetColor:ROM
+	XREF _srand:ROM
+	XREF __imuls:ROM
+	XREF __frameset:ROM
+	XREF __imul_b:ROM
+	XDEF _wallKick
+	XDEF _checkCollision
+	XDEF _getTetrominoSize
+	XDEF _generateTetromino
+	XDEF _placeTetromino
+	XDEF _checkPlacing
+	XDEF _drawTetromino
+	XDEF _updateTetromino
+	XDEF _initTetromino
+	XDEF _placeTimer
+	XDEF _dropState
+	XDEF _dropTimer
+	XDEF _dropDelayTimer
+	XDEF _gravitySpeed
+	XDEF _gravityTimer
+	XDEF _oldOrientation
+	XDEF _oldY
+	XDEF _oldX
+	XDEF _tetrominoOrientation
+	XDEF _tetrominoH
+	XDEF _tetrominoW
+	XDEF _tetrominoY
+	XDEF _tetrominoX
+	XDEF _tetrominoType
+	XDEF _placing
+	XDEF _moveState
+	XDEF _moveDir
+	XDEF _moveTimer
+	XDEF _moveDelayTimer
+	XDEF _GRAVITY_INTERVAL
+	XDEF _GRAVITY_START
+	XDEF _PLACE_DELAY
+	XDEF _DROP_SPEED
+	XDEF _DROP_DELAY
+	XDEF _MOVE_SPEED
+	XDEF _MOVE_DELAY
+	END

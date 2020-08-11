@@ -1,0 +1,206 @@
+; Zilog eZ80 ANSI C Compiler Release 3.4
+; -optsize -noreduceopt -nomodsect -peephole -globalopt
+; -localcse -const=ROM 
+	FILE	"SRC\GAMEOVER.C"
+	.assume ADL=1
+	SEGMENT CODE
+;    1	#include "gameOver.h"
+;    2	
+;    3	#include <graphx.h>
+;    4	
+;    5	#include "main.h"
+;    6	#include "text.h"
+;    7	#include "game.h"
+;    8	
+;    9	void updateGameOver() {
+_updateGameOver:
+;   10		if(keyEnter && keyEnterReady) {
+	LD	A,(_keyEnter)
+	OR	A,A
+	JR	Z,L_2
+	LD	A,(_keyEnterReady)
+	OR	A,A
+	JR	Z,L_2
+;   11			keyEnterReady = 0;
+;   12			
+;   13			changeState(0);
+	LD	BC,0
+	PUSH	BC
+	XOR	A,A
+	LD	(_keyEnterReady),A
+	CALL	_changeState
+	POP	BC
+;   14		}
+;   15	}
+L_2:
+	RET	
+
+
+;**************************** _updateGameOver ***************************
+;Name                         Addr/Register   Size   Type
+;_changeState                        IMPORT  -----   function
+;_keyEnterReady                      IMPORT      1   variable
+;_keyEnter                           IMPORT      1   variable
+
+
+; Stack Frame Size: 6 (bytes)
+;       Spill Code: 0 (instruction)
+
+
+;   16	void drawGameOver() {
+_drawGameOver:
+;   17		// draw background
+;   18		gfx_FillScreen(COLOR_BG);
+	LD	A,(_COLOR_BG)
+	LD	C,A
+	LD	B,0
+	PUSH	BC
+	CALL	_gfx_FillScreen
+	POP	BC
+;   19		
+;   20		drawString("GAME OVER", 160, 120, -1, CENTER_JUSTIFIED, MIDDLE_ALIGNED);
+	LD	A,(_MIDDLE_ALIGNED)
+	LD	C,A
+	LD	A,(_CENTER_JUSTIFIED)
+	LD	B,0
+	PUSH	BC
+	LD	C,A
+	PUSH	BC
+	LD	BC,16777215
+	PUSH	BC
+	LD	BC,120
+	PUSH	BC
+	LD	BC,160
+	PUSH	BC
+	LD	BC,L__3
+	PUSH	BC
+	CALL	_drawString
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+;   21		drawString("Lines cleared:", 160, 120, 1, CENTER_JUSTIFIED, MIDDLE_ALIGNED);
+	LD	A,(_MIDDLE_ALIGNED)
+	LD	C,A
+	LD	A,(_CENTER_JUSTIFIED)
+	LD	B,0
+	PUSH	BC
+	LD	C,A
+	PUSH	BC
+	LD	BC,1
+	PUSH	BC
+	LD	BC,120
+	PUSH	BC
+	LD	BC,160
+	PUSH	BC
+	LD	BC,L__4
+	PUSH	BC
+	CALL	_drawString
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+;   22		drawUInt(linesCleared, 160, 120, 2, CENTER_JUSTIFIED, MIDDLE_ALIGNED);
+	LD	A,(_MIDDLE_ALIGNED)
+	LD	C,A
+	LD	A,(_CENTER_JUSTIFIED)
+	LD	B,0
+	PUSH	BC
+	LD	C,A
+	PUSH	BC
+	LD	BC,2
+	PUSH	BC
+	LD	A,(_linesCleared)
+	LD	BC,120
+	PUSH	BC
+	LD	C,A
+	LD	DE,160
+	PUSH	DE
+	LD	B,0
+	PUSH	BC
+	CALL	_drawUInt
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+;   23		drawString("Press enter to continue", 160, 240, 0, CENTER_JUSTIFIED, BOTTOM_ALIGNED);
+	LD	A,(_BOTTOM_ALIGNED)
+	LD	C,A
+	LD	A,(_CENTER_JUSTIFIED)
+	LD	B,0
+	PUSH	BC
+	LD	C,A
+	PUSH	BC
+	LD	BC,0
+	PUSH	BC
+	LD	BC,240
+	PUSH	BC
+	LD	BC,160
+	PUSH	BC
+	LD	BC,L__5
+	PUSH	BC
+	CALL	_drawString
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+;   24		
+;   25		// swap buffer
+;   26		gfx_Blit(gfx_buffer);
+	LD	BC,1
+	PUSH	BC
+	CALL	_gfx_Blit
+	POP	BC
+	RET	
+
+
+;**************************** _drawGameOver ***************************
+;Name                         Addr/Register   Size   Type
+;_gfx_Blit                           IMPORT  -----   function
+;_BOTTOM_ALIGNED                     IMPORT      1   variable
+;_linesCleared                       IMPORT      1   variable
+;_drawUInt                           IMPORT  -----   function
+;_CENTER_JUSTIFIED                   IMPORT      1   variable
+;_MIDDLE_ALIGNED                     IMPORT      1   variable
+;_drawString                         IMPORT  -----   function
+;_COLOR_BG                           IMPORT      1   variable
+;_gfx_FillScreen                     IMPORT  -----   function
+
+
+; Stack Frame Size: 6 (bytes)
+;       Spill Code: 0 (instruction)
+
+
+	SEGMENT STRSECT
+L__3:
+	DB	"GAME OVER"
+	DB	0
+L__4:
+	DB	"Lines cleared:"
+	DB	0
+L__5:
+	DB	"Press enter to continue"
+	DB	0
+	XREF _linesCleared:ROM
+	XREF _drawUInt:ROM
+	XREF _drawString:ROM
+	XREF _BOTTOM_ALIGNED:ROM
+	XREF _MIDDLE_ALIGNED:ROM
+	XREF _CENTER_JUSTIFIED:ROM
+	XREF _changeState:ROM
+	XREF _keyEnterReady:ROM
+	XREF _keyEnter:ROM
+	XREF _COLOR_BG:ROM
+	XREF _gfx_Blit:ROM
+	XREF _gfx_FillScreen:ROM
+	XDEF _drawGameOver
+	XDEF _updateGameOver
+	END

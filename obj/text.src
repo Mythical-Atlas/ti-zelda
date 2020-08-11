@@ -1,0 +1,768 @@
+; Zilog eZ80 ANSI C Compiler Release 3.4
+; -optsize -noreduceopt -nomodsect -peephole -globalopt
+; -localcse -const=ROM 
+	FILE	"SRC\TEXT.C"
+	.assume ADL=1
+	SEGMENT TEXT
+_LEFT_JUSTIFIED:
+	DB	0
+_CENTER_JUSTIFIED:
+	DB	1
+_RIGHT_JUSTIFIED:
+	DB	2
+_TOP_ALIGNED:
+	DB	0
+_MIDDLE_ALIGNED:
+	DB	1
+_BOTTOM_ALIGNED:
+	DB	2
+;    1	#include "text.h"
+;    2	
+;    3	/*#include <tice.h>
+;    4	#include <graphx.h>
+;    5	#include <keypadc.h>
+;    6	#include <debug.h>
+;    7	#include <fileioc.h>*/
+;    8	#include <fontlibc.h>
+;    9	
+;   10	/*#include <stdio.h>
+;   11	#include <stdlib.h>
+;   12	#include <stddef.h>
+;   13	#include <stdint.h>
+;   14	#include <stdbool.h>*/
+;   15	
+;   16	#include <math.h>
+;   17	/*#include <string.h>
+;   18	#include <ctype.h>*/
+;   19	
+;   20	#include "fonts/fonts.h"
+;   21	
+;   22	#include "main.h"
+;   23	
+;   24	const uint8_t LEFT_JUSTIFIED   = 0;
+;   25	const uint8_t CENTER_JUSTIFIED = 1;
+;   26	const uint8_t RIGHT_JUSTIFIED  = 2;
+;   27	const uint8_t TOP_ALIGNED      = 0;
+;   28	const uint8_t MIDDLE_ALIGNED   = 1;
+;   29	const uint8_t BOTTOM_ALIGNED   = 2;
+	SEGMENT CODE
+;   30	
+;   31	void initFont() {
+_initFont:
+;   32		fontlib_SetFont(test_font, 0);
+	LD	BC,0
+	PUSH	BC
+	LD	BC,(_test_font)
+	PUSH	BC
+	CALL	_fontlib_SetFont
+	POP	BC
+	POP	BC
+;   33	    fontlib_SetLineSpacing(2, 2);
+	LD	BC,2
+	PUSH	BC
+	PUSH	BC
+	CALL	_fontlib_SetLineSpacing
+	POP	BC
+	POP	BC
+;   34	    fontlib_SetColors(COLOR_FONT, COLOR_BG);
+	LD	A,(_COLOR_BG)
+	LD	C,A
+	LD	A,(_COLOR_FONT)
+	LD	B,0
+	PUSH	BC
+	LD	C,A
+	PUSH	BC
+	CALL	_fontlib_SetColors
+	POP	BC
+	POP	BC
+;   35	}
+	RET	
+
+
+;**************************** _initFont ***************************
+;Name                         Addr/Register   Size   Type
+;_COLOR_FONT                         IMPORT      1   variable
+;_COLOR_BG                           IMPORT      1   variable
+;_fontlib_SetColors                  IMPORT  -----   function
+;_fontlib_SetLineSpacing             IMPORT  -----   function
+;_test_font                          IMPORT      3   variable
+;_fontlib_SetFont                    IMPORT  -----   function
+
+
+; Stack Frame Size: 6 (bytes)
+;       Spill Code: 0 (instruction)
+
+
+;   36	
+;   37	void drawString(char* string, uint8_t x, uint8_t y, int8_t line, uint8_t justification, uint8_t alignment) {
+_drawString:
+	LD	HL,-2
+	CALL	__frameset
+;   38		uint8_t cx = x;
+	LD	A,(IX+9)
+	LD	(IX+-2),A
+;   39		uint8_t cy = y + fontlib_GetCurrentFontHeight() * line;
+	CALL	_fontlib_GetCurrentFontHeight
+	LD	B,(IX+15)
+	LD	C,A
+	MLT	BC
+	LD	A,C
+	ADD	A,(IX+12)
+	LD	(IX+-1),A
+;   40		
+;   41		if(justification == LEFT_JUSTIFIED) {}
+	LD	A,(IX+18)
+	OR	A,A
+	JR	Z,L_11
+;   42		else if(justification == CENTER_JUSTIFIED) {cx -= fontlib_GetStringWidth(string) / 2;}
+	LD	A,(IX+18)
+	CP	A,1
+	JR	NZ,L_3
+	LD	BC,(IX+6)
+	PUSH	BC
+	CALL	_fontlib_GetStringWidth
+	POP	BC
+	LD	A,1
+	CALL	__ishru_b
+	LD	A,(IX+9)
+	SUB	A,L
+	LD	(IX+-2),A
+;   43		else if(justification == RIGHT_JUSTIFIED) {cx -= fontlib_GetStringWidth(string);}
+	JR	L_11
+L_3:
+	LD	A,(IX+18)
+	CP	A,2
+	JR	NZ,L_11
+	LD	BC,(IX+6)
+	PUSH	BC
+	CALL	_fontlib_GetStringWidth
+	POP	BC
+	LD	A,(IX+9)
+	SUB	A,L
+	LD	(IX+-2),A
+L_11:
+;   44		
+;   45		if(alignment == TOP_ALIGNED) {}
+	LD	A,(IX+21)
+	OR	A,A
+	JR	Z,L_12
+;   46		else if(alignment == MIDDLE_ALIGNED) {cy -= fontlib_GetCurrentFontHeight() / 2;}
+	LD	A,(IX+21)
+	CP	A,1
+	JR	NZ,L_8
+	CALL	_fontlib_GetCurrentFontHeight
+	UEXT	HL
+	LD	L,A
+	LD	A,(IX+-1)
+	LD	BC,2
+	CALL	__idivs
+	SUB	A,L
+	LD	(IX+-1),A
+;   47		else if(alignment == BOTTOM_ALIGNED) {cy -= fontlib_GetCurrentFontHeight();}
+	JR	L_12
+L_8:
+	LD	A,(IX+21)
+	CP	A,2
+	JR	NZ,L_12
+	CALL	_fontlib_GetCurrentFontHeight
+	LD	B,A
+	LD	A,(IX+-1)
+	SUB	A,B
+	LD	(IX+-1),A
+L_12:
+;   48		
+;   49		fontlib_SetWindow(cx, cy, fontlib_GetStringWidth(string), fontlib_GetCurrentFontHeight());
+	CALL	_fontlib_GetCurrentFontHeight
+	LD	C,A
+	LD	B,0
+	PUSH	BC
+	LD	BC,(IX+6)
+	PUSH	BC
+	CALL	_fontlib_GetStringWidth
+	POP	BC
+	PUSH	HL
+	LD	C,(IX+-1)
+	LD	B,0
+	PUSH	BC
+	LD	A,(IX+-2)
+	UEXT	HL
+	LD	L,A
+	PUSH	HL
+	CALL	_fontlib_SetWindow
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+;   50		fontlib_SetCursorPosition(cx, cy);
+	LD	C,(IX+-1)
+	LD	B,0
+	PUSH	BC
+	LD	A,(IX+-2)
+	UEXT	HL
+	LD	L,A
+	PUSH	HL
+	CALL	_fontlib_SetCursorPosition
+	POP	BC
+	POP	BC
+;   51		
+;   52		fontlib_DrawString(string);
+	LD	BC,(IX+6)
+	PUSH	BC
+	CALL	_fontlib_DrawString
+	POP	BC
+;   53	}
+	LD	SP,IX
+	POP	IX
+	RET	
+
+
+;**************************** _drawString ***************************
+;Name                         Addr/Register   Size   Type
+;_fontlib_DrawString                 IMPORT  -----   function
+;_fontlib_SetCursorPosition          IMPORT  -----   function
+;_fontlib_SetWindow                  IMPORT  -----   function
+;_fontlib_GetStringWidth             IMPORT  -----   function
+;_fontlib_GetCurrentFontHeight       IMPORT  -----   function
+;cx                                    IX-2      1   variable
+;cy                                    IX-1      1   variable
+;alignment                            IX+21      1   parameter
+;justification                        IX+18      1   parameter
+;line                                 IX+15      1   parameter
+;y                                    IX+12      1   parameter
+;x                                     IX+9      1   parameter
+;string                                IX+6      3   parameter
+
+
+; Stack Frame Size: 26 (bytes)
+;       Spill Code: 0 (instruction)
+
+
+;   54	void drawUInt(uint8_t string, uint8_t x, uint8_t y, int8_t line, uint8_t justification, uint8_t alignment) {
+_drawUInt:
+	LD	HL,-13
+	CALL	__frameset
+;   55		uint8_t cx = x;
+	LD	A,(IX+9)
+	LD	(IX+-4),A
+;   56		uint8_t cy = y + fontlib_GetCurrentFontHeight() * line;
+	CALL	_fontlib_GetCurrentFontHeight
+	LD	B,(IX+15)
+	LD	C,A
+	MLT	BC
+	LD	A,C
+	ADD	A,(IX+12)
+	LD	(IX+-1),A
+;   57		uint8_t stringWidth = 0;
+	LD	(IX+-2),0
+;   58		uint8_t i;
+;   59		uint8_t temp;
+;   60		
+;   61		for(i = 0; i < floor(log(string)) + 1; i++) {
+	LD	(IX+-3),0
+	JR	L_17
+L_15:
+;   62			temp = (uint8_t)(string / pow(10, i)) % 10;
+	UEXT	HL
+	LD	L,(IX+6)
+	LD	A,H
+	LD	BC,HL
+	CALL	__ultof
+	LD	(IX+-10),A
+	UEXT	HL
+	LD	L,(IX+-3)
+	LD	A,H
+	LD	(IX+-13),BC
+	LD	BC,HL
+	CALL	__ultof
+	LD	DE,BC
+	LD	C,A
+	LD	B,0
+	PUSH	BC
+	PUSH	DE
+	LD	C,65
+	PUSH	BC
+	LD	BC,2097152
+	PUSH	BC
+	CALL	_pow
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	LD	A,(IX+-10)
+	LD	BC,(IX+-13)
+	CALL	__fdiv
+	CALL	__ftol
+	LD	A,C
+	UEXT	HL
+	LD	L,A
+	LD	BC,10
+	CALL	__irems
+	LD	(IX+-5),L
+;   63			stringWidth += fontlib_GetGlyphWidth('0' + temp) / 2;
+	LD	A,(IX+-5)
+	ADD	A,48
+	LD	C,A
+	LD	B,0
+	PUSH	BC
+	CALL	_fontlib_GetGlyphWidth
+	POP	BC
+	UEXT	HL
+	LD	L,A
+	LD	BC,2
+	CALL	__idivs
+	LD	A,L
+	ADD	A,(IX+-2)
+	LD	(IX+-2),A
+	INC	(IX+-3)
+;   64		}
+L_17:
+	UEXT	HL
+	LD	L,(IX+6)
+	LD	A,H
+	LD	BC,HL
+	CALL	__ultof
+	LD	DE,BC
+	LD	C,A
+	LD	B,0
+	PUSH	BC
+	PUSH	DE
+	CALL	_log
+	POP	BC
+	POP	BC
+	LD	C,E
+	LD	B,0
+	PUSH	BC
+	PUSH	HL
+	CALL	_floor
+	POP	BC
+	POP	BC
+	LD	A,E
+	LD	BC,HL
+	LD	HL,8388608
+	LD	E,63
+	CALL	__fadd
+	LD	(IX+-9),A
+	UEXT	HL
+	LD	L,(IX+-3)
+	LD	A,H
+	LD	(IX+-8),BC
+	LD	BC,HL
+	CALL	__ultof
+	LD	E,A
+	LD	HL,BC
+	LD	BC,(IX+-8)
+	LD	A,(IX+-9)
+	CALL	__fcmp
+	JP	M,L_15
+;   65		
+;   66		if(justification == LEFT_JUSTIFIED) {}
+	LD	A,(IX+18)
+	OR	A,A
+	JR	Z,L_29
+;   67		else if(justification == CENTER_JUSTIFIED) {cx -= stringWidth / 2;}
+	LD	A,(IX+18)
+	CP	A,1
+	JR	NZ,L_20
+	LD	A,(IX+-2)
+	UEXT	HL
+	LD	L,A
+	LD	A,(IX+9)
+	LD	BC,2
+	CALL	__idivs
+	SUB	A,L
+	LD	(IX+-4),A
+;   68		else if(justification == RIGHT_JUSTIFIED) {cx -= stringWidth;}
+	JR	L_29
+L_20:
+	LD	A,(IX+18)
+	CP	A,2
+	JR	NZ,L_29
+	LD	A,(IX+9)
+	SUB	A,(IX+-2)
+	LD	(IX+-4),A
+L_29:
+;   69		
+;   70		if(alignment == TOP_ALIGNED) {}
+	LD	A,(IX+21)
+	OR	A,A
+	JR	Z,L_30
+;   71		else if(alignment == MIDDLE_ALIGNED) {cy -= fontlib_GetCurrentFontHeight() / 2;}
+	LD	A,(IX+21)
+	CP	A,1
+	JR	NZ,L_26
+	CALL	_fontlib_GetCurrentFontHeight
+	UEXT	HL
+	LD	L,A
+	LD	A,(IX+-1)
+	LD	BC,2
+	CALL	__idivs
+	SUB	A,L
+	LD	(IX+-1),A
+;   72		else if(alignment == BOTTOM_ALIGNED) {cy -= fontlib_GetCurrentFontHeight();}
+	JR	L_30
+L_26:
+	LD	A,(IX+21)
+	CP	A,2
+	JR	NZ,L_30
+	CALL	_fontlib_GetCurrentFontHeight
+	LD	B,A
+	LD	A,(IX+-1)
+	SUB	A,B
+	LD	(IX+-1),A
+L_30:
+;   73		
+;   74		fontlib_SetWindow(cx, cy, stringWidth, fontlib_GetCurrentFontHeight());
+	CALL	_fontlib_GetCurrentFontHeight
+	LD	C,A
+	LD	B,0
+	PUSH	BC
+	LD	A,(IX+-2)
+	UEXT	HL
+	LD	L,A
+	PUSH	HL
+	LD	C,(IX+-1)
+	PUSH	BC
+	LD	A,(IX+-4)
+	UEXT	HL
+	LD	L,A
+	PUSH	HL
+	CALL	_fontlib_SetWindow
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+;   75		fontlib_SetCursorPosition(cx, cy);
+	LD	C,(IX+-1)
+	LD	B,0
+	PUSH	BC
+	LD	A,(IX+-4)
+	UEXT	HL
+	LD	L,A
+	PUSH	HL
+	CALL	_fontlib_SetCursorPosition
+	POP	BC
+	POP	BC
+;   76		
+;   77		fontlib_DrawUInt(string, 1);
+	LD	BC,1
+	PUSH	BC
+	LD	A,(IX+6)
+	UEXT	HL
+	LD	L,A
+	PUSH	HL
+	CALL	_fontlib_DrawUInt
+	POP	BC
+	POP	BC
+;   78	}
+	LD	SP,IX
+	POP	IX
+	RET	
+
+
+;**************************** _drawUInt ***************************
+;Name                         Addr/Register   Size   Type
+;_fontlib_DrawUInt                   IMPORT  -----   function
+;_fontlib_SetCursorPosition          IMPORT  -----   function
+;_fontlib_SetWindow                  IMPORT  -----   function
+;_log                                IMPORT  -----   function
+;_floor                              IMPORT  -----   function
+;_fontlib_GetGlyphWidth              IMPORT  -----   function
+;_pow                                IMPORT  -----   function
+;_fontlib_GetCurrentFontHeight       IMPORT  -----   function
+;temp                                  IX-5      1   variable
+;cx                                    IX-4      1   variable
+;i                                     IX-3      1   variable
+;stringWidth                           IX-2      1   variable
+;cy                                    IX-1      1   variable
+;alignment                            IX+21      1   parameter
+;justification                        IX+18      1   parameter
+;line                                 IX+15      1   parameter
+;y                                    IX+12      1   parameter
+;x                                     IX+9      1   parameter
+;string                                IX+6      1   parameter
+
+
+; Stack Frame Size: 37 (bytes)
+;       Spill Code: 0 (instruction)
+
+
+;   79	void drawULong(uint32_t string, uint8_t x, uint8_t y, int8_t line, uint8_t justification, uint8_t alignment) {
+_drawULong:
+	LD	HL,-16
+	CALL	__frameset
+;   80		uint8_t cx = x;
+	LD	A,(IX+12)
+	LD	(IX+-4),A
+;   81		uint8_t cy = y + fontlib_GetCurrentFontHeight() * line;
+	CALL	_fontlib_GetCurrentFontHeight
+	LD	B,(IX+18)
+	LD	C,A
+	MLT	BC
+	LD	A,C
+	ADD	A,(IX+15)
+	LD	(IX+-1),A
+;   82		uint8_t stringWidth = 0;
+	LD	(IX+-2),0
+;   83		uint8_t i;
+;   84		uint32_t temp;
+;   85		
+;   86		for(i = 0; i < floor(log(string)) + 1; i++) {
+	LD	(IX+-3),0
+	JR	L_35
+L_33:
+;   87			temp = (uint32_t)(string / pow(10, i)) % 10;
+	LD	BC,(IX+6)
+	LD	A,(IX+9)
+	CALL	__ultof
+	LD	(IX+-13),A
+	UEXT	HL
+	LD	L,(IX+-3)
+	LD	A,H
+	LD	(IX+-16),BC
+	LD	BC,HL
+	CALL	__ultof
+	LD	DE,BC
+	LD	C,A
+	LD	B,0
+	PUSH	BC
+	PUSH	DE
+	LD	C,65
+	PUSH	BC
+	LD	BC,2097152
+	PUSH	BC
+	CALL	_pow
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	LD	A,(IX+-13)
+	LD	BC,(IX+-16)
+	CALL	__fdiv
+	CALL	__ftol
+	LD	E,A
+	LD	HL,BC
+	LD	BC,10
+	XOR	A,A
+	CALL	__lremu
+	LD	(IX+-8),HL
+	LD	(IX+-5),E
+;   88			stringWidth += fontlib_GetGlyphWidth('0' + temp) / 2;
+	LD	A,(IX+-8)
+	ADD	A,48
+	LD	C,A
+	LD	B,0
+	PUSH	BC
+	CALL	_fontlib_GetGlyphWidth
+	POP	BC
+	UEXT	HL
+	LD	L,A
+	LD	BC,2
+	CALL	__idivs
+	LD	A,L
+	ADD	A,(IX+-2)
+	LD	(IX+-2),A
+	INC	(IX+-3)
+;   89		}
+L_35:
+	LD	BC,(IX+6)
+	LD	A,(IX+9)
+	CALL	__ultof
+	LD	DE,BC
+	LD	C,A
+	LD	B,0
+	PUSH	BC
+	PUSH	DE
+	CALL	_log
+	POP	BC
+	POP	BC
+	LD	C,E
+	LD	B,0
+	PUSH	BC
+	PUSH	HL
+	CALL	_floor
+	POP	BC
+	POP	BC
+	LD	A,E
+	LD	BC,HL
+	LD	HL,8388608
+	LD	E,63
+	CALL	__fadd
+	LD	(IX+-12),A
+	UEXT	HL
+	LD	L,(IX+-3)
+	LD	A,H
+	LD	(IX+-11),BC
+	LD	BC,HL
+	CALL	__ultof
+	LD	E,A
+	LD	HL,BC
+	LD	BC,(IX+-11)
+	LD	A,(IX+-12)
+	CALL	__fcmp
+	JP	M,L_33
+;   90		
+;   91		if(justification == LEFT_JUSTIFIED) {}
+	LD	A,(IX+21)
+	OR	A,A
+	JR	Z,L_47
+;   92		else if(justification == CENTER_JUSTIFIED) {cx -= stringWidth / 2;}
+	LD	A,(IX+21)
+	CP	A,1
+	JR	NZ,L_38
+	LD	A,(IX+-2)
+	UEXT	HL
+	LD	L,A
+	LD	A,(IX+12)
+	LD	BC,2
+	CALL	__idivs
+	SUB	A,L
+	LD	(IX+-4),A
+;   93		else if(justification == RIGHT_JUSTIFIED) {cx -= stringWidth;}
+	JR	L_47
+L_38:
+	LD	A,(IX+21)
+	CP	A,2
+	JR	NZ,L_47
+	LD	A,(IX+12)
+	SUB	A,(IX+-2)
+	LD	(IX+-4),A
+L_47:
+;   94		
+;   95		if(alignment == TOP_ALIGNED) {}
+	LD	A,(IX+24)
+	OR	A,A
+	JR	Z,L_48
+;   96		else if(alignment == MIDDLE_ALIGNED) {cy -= fontlib_GetCurrentFontHeight() / 2;}
+	LD	A,(IX+24)
+	CP	A,1
+	JR	NZ,L_44
+	CALL	_fontlib_GetCurrentFontHeight
+	UEXT	HL
+	LD	L,A
+	LD	A,(IX+-1)
+	LD	BC,2
+	CALL	__idivs
+	SUB	A,L
+	LD	(IX+-1),A
+;   97		else if(alignment == BOTTOM_ALIGNED) {cy -= fontlib_GetCurrentFontHeight();}
+	JR	L_48
+L_44:
+	LD	A,(IX+24)
+	CP	A,2
+	JR	NZ,L_48
+	CALL	_fontlib_GetCurrentFontHeight
+	LD	B,A
+	LD	A,(IX+-1)
+	SUB	A,B
+	LD	(IX+-1),A
+L_48:
+;   98		
+;   99		fontlib_SetWindow(cx, cy, stringWidth, fontlib_GetCurrentFontHeight());
+	CALL	_fontlib_GetCurrentFontHeight
+	LD	C,A
+	LD	B,0
+	PUSH	BC
+	LD	A,(IX+-2)
+	UEXT	HL
+	LD	L,A
+	PUSH	HL
+	LD	C,(IX+-1)
+	PUSH	BC
+	LD	A,(IX+-4)
+	UEXT	HL
+	LD	L,A
+	PUSH	HL
+	CALL	_fontlib_SetWindow
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+;  100		fontlib_SetCursorPosition(cx, cy);
+	LD	C,(IX+-1)
+	LD	B,0
+	PUSH	BC
+	LD	A,(IX+-4)
+	UEXT	HL
+	LD	L,A
+	PUSH	HL
+	CALL	_fontlib_SetCursorPosition
+	POP	BC
+	POP	BC
+;  101		
+;  102		fontlib_DrawUInt(string, 1);
+	LD	BC,1
+	PUSH	BC
+	LD	BC,(IX+6)
+	PUSH	BC
+	CALL	_fontlib_DrawUInt
+	POP	BC
+	POP	BC
+	LD	SP,IX
+	POP	IX
+	RET	
+
+
+;**************************** _drawULong ***************************
+;Name                         Addr/Register   Size   Type
+;_fontlib_DrawUInt                   IMPORT  -----   function
+;_fontlib_SetCursorPosition          IMPORT  -----   function
+;_fontlib_SetWindow                  IMPORT  -----   function
+;_log                                IMPORT  -----   function
+;_floor                              IMPORT  -----   function
+;_fontlib_GetGlyphWidth              IMPORT  -----   function
+;_pow                                IMPORT  -----   function
+;_fontlib_GetCurrentFontHeight       IMPORT  -----   function
+;temp                                  IX-8      4   variable
+;cx                                    IX-4      1   variable
+;i                                     IX-3      1   variable
+;stringWidth                           IX-2      1   variable
+;cy                                    IX-1      1   variable
+;alignment                            IX+24      1   parameter
+;justification                        IX+21      1   parameter
+;line                                 IX+18      1   parameter
+;y                                    IX+15      1   parameter
+;x                                    IX+12      1   parameter
+;string                                IX+6      4   parameter
+
+
+; Stack Frame Size: 43 (bytes)
+;       Spill Code: 0 (instruction)
+
+
+	XREF _COLOR_FONT:ROM
+	XREF _COLOR_BG:ROM
+	XREF _test_font:ROM
+	XREF _floor:ROM
+	XREF _pow:ROM
+	XREF _log:ROM
+	XREF _fontlib_DrawUInt:ROM
+	XREF _fontlib_DrawString:ROM
+	XREF _fontlib_GetStringWidth:ROM
+	XREF _fontlib_GetGlyphWidth:ROM
+	XREF _fontlib_GetCurrentFontHeight:ROM
+	XREF _fontlib_SetLineSpacing:ROM
+	XREF _fontlib_SetColors:ROM
+	XREF _fontlib_SetFont:ROM
+	XREF _fontlib_SetCursorPosition:ROM
+	XREF _fontlib_SetWindow:ROM
+	XREF __idivs:ROM
+	XREF __irems:ROM
+	XREF __lremu:ROM
+	XREF __fadd:ROM
+	XREF __fdiv:ROM
+	XREF __fcmp:ROM
+	XREF __ftol:ROM
+	XREF __ultof:ROM
+	XREF __frameset:ROM
+	XREF __ishru_b:ROM
+	XDEF _drawULong
+	XDEF _drawUInt
+	XDEF _drawString
+	XDEF _initFont
+	XDEF _BOTTOM_ALIGNED
+	XDEF _MIDDLE_ALIGNED
+	XDEF _TOP_ALIGNED
+	XDEF _RIGHT_JUSTIFIED
+	XDEF _CENTER_JUSTIFIED
+	XDEF _LEFT_JUSTIFIED
+	END

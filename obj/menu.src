@@ -1,0 +1,857 @@
+; Zilog eZ80 ANSI C Compiler Release 3.4
+; -optsize -noreduceopt -nomodsect -peephole -globalopt
+; -localcse -const=ROM 
+	FILE	"SRC\MENU.C"
+	.assume ADL=1
+	SEGMENT BSS
+_menuState:
+	DS	1
+_menuTimer:
+	DS	1
+_menuSelection:
+	DS	1
+;    1	#include "menu.h"
+;    2	
+;    3	/*#include <tice.h>*/
+;    4	#include <graphx.h>
+;    5	/*#include <keypadc.h>
+;    6	#include <debug.h>
+;    7	#include <fileioc.h>*/
+;    8	#include <fontlibc.h>
+;    9	
+;   10	/*#include <stdio.h>
+;   11	#include <stdlib.h>
+;   12	#include <stddef.h>*/
+;   13	#include <stdint.h>
+;   14	/*#include <stdbool.h>
+;   15	
+;   16	#include <math.h>
+;   17	#include <string.h>
+;   18	#include <ctype.h>*/
+;   19	
+;   20	#include "main.h"
+;   21	#include "text.h"
+;   22	#include "field.h"
+;   23	
+;   24	uint8_t menuState;
+;   25	uint8_t menuTimer;
+;   26	uint8_t menuSelection;
+	SEGMENT CODE
+;   27	
+;   28	void initMenu() {
+_initMenu:
+;   29		menuState = 0;
+	XOR	A,A
+	LD	(_menuState),A
+;   30		menuTimer = 0;
+	XOR	A,A
+	LD	(_menuTimer),A
+;   31		menuSelection = 0;
+	XOR	A,A
+	LD	(_menuSelection),A
+;   32	}
+	RET	
+
+
+;**************************** _initMenu ***************************
+;Name                         Addr/Register   Size   Type
+;_menuSelection                      STATIC      1   variable
+;_menuTimer                          STATIC      1   variable
+;_menuState                          STATIC      1   variable
+
+
+; Stack Frame Size: 6 (bytes)
+;       Spill Code: 0 (instruction)
+
+
+;   33	void updateMenu() {
+_updateMenu:
+;   34		if(menuState == 0) { // PRESS ENTER
+	LD	A,(_menuState)
+	OR	A,A
+	JR	NZ,L_37
+;   35			if(keyClear && keyClearReady) {
+	LD	A,(_keyClear)
+	OR	A,A
+	JR	Z,L_5
+	LD	A,(_keyClearReady)
+	OR	A,A
+	JR	Z,L_5
+;   36				keyClearReady = 0;
+	XOR	A,A
+	LD	(_keyClearReady),A
+;   37				running = 0;
+	XOR	A,A
+	LD	(_running),A
+;   38			}
+L_5:
+;   39			if(keyEnter && keyEnterReady) {
+	LD	A,(_keyEnter)
+	OR	A,A
+	JR	Z,L_7
+	LD	A,(_keyEnterReady)
+	OR	A,A
+	JR	Z,L_7
+;   40				keyEnterReady = 0;
+	XOR	A,A
+	LD	(_keyEnterReady),A
+;   41				menuState = 1;
+	LD	A,1
+	LD	(_menuState),A
+;   42				menuSelection = 0;
+	XOR	A,A
+	LD	(_menuSelection),A
+;   43			}
+L_7:
+;   44			
+;   45			menuTimer++;
+	LD	A,(_menuTimer)
+	INC	A
+;   46			if(menuTimer >= 60) {menuTimer = 0;}
+	CP	A,60
+	LD	(_menuTimer),A
+	JR	C,L_38
+	XOR	A,A
+	LD	(_menuTimer),A
+;   47		}
+;   48		else if(menuState == 1) { // START | CONTROLS
+	JR	L_38
+L_37:
+	LD	A,(_menuState)
+	CP	A,1
+	JR	NZ,L_35
+;   49			if(keyClear && keyClearReady) {
+	LD	A,(_keyClear)
+	OR	A,A
+	JR	Z,L_16
+	LD	A,(_keyClearReady)
+	OR	A,A
+	JR	Z,L_16
+;   50				keyClearReady = 0;
+	XOR	A,A
+	LD	(_keyClearReady),A
+;   51				menuState = 0;
+	XOR	A,A
+	LD	(_menuState),A
+;   52			}
+L_16:
+;   53			if(keyEnter && keyEnterReady) {
+	LD	A,(_keyEnter)
+	OR	A,A
+	JR	Z,L_22
+	LD	A,(_keyEnterReady)
+	OR	A,A
+	JR	Z,L_22
+;   54				keyEnterReady = 0;
+	XOR	A,A
+	LD	(_keyEnterReady),A
+;   55				
+;   56				if(menuSelection == 0) {menuState = 3;}
+	LD	A,(_menuSelection)
+	OR	A,A
+	JR	NZ,L_14
+	LD	A,3
+	LD	(_menuState),A
+;   57				else if(menuSelection == 1) {menuState = 2;}
+	JR	L_22
+L_14:
+	LD	A,(_menuSelection)
+	CP	A,1
+	JR	NZ,L_22
+	LD	A,2
+	LD	(_menuState),A
+;   58			}
+L_22:
+;   59			
+;   60			if(keyUp && keyUpReady) {
+	LD	A,(_keyUp)
+	OR	A,A
+	JR	Z,L_28
+	LD	A,(_keyUpReady)
+	OR	A,A
+	JR	Z,L_28
+;   61				keyUpReady = 0;
+	XOR	A,A
+	LD	(_keyUpReady),A
+;   62				
+;   63				if(menuSelection > 0) {menuSelection--;}
+	XOR	A,A
+	LD	HL,_menuSelection
+	CP	A,(HL)
+	JR	NC,L_20
+	LD	A,(_menuSelection)
+	DEC	A
+	LD	(_menuSelection),A
+;   64				else {menuSelection = 1;}
+	JR	L_28
+L_20:
+	LD	A,1
+	LD	(_menuSelection),A
+;   65			}
+L_28:
+;   66			if(keyDown && keyDownReady) {
+	LD	A,(_keyDown)
+	OR	A,A
+	JR	Z,L_38
+	LD	A,(_keyDownReady)
+	OR	A,A
+	JR	Z,L_38
+;   67				
+;   68				keyUpReady = 0;
+	XOR	A,A
+	LD	(_keyUpReady),A
+;   69				if(menuSelection < 1) {menuSelection++;}
+	LD	A,(_menuSelection)
+	CP	A,1
+	JR	NC,L_26
+	LD	A,(_menuSelection)
+	INC	A
+	LD	(_menuSelection),A
+;   70				else {menuSelection = 0;}
+	JR	L_38
+L_26:
+	XOR	A,A
+	LD	(_menuSelection),A
+;   71			}
+;   72		}
+;   73		else if(menuState == 2) { // list controls
+	JR	L_38
+L_35:
+	LD	A,(_menuState)
+	CP	A,2
+	JR	NZ,L_33
+;   74			if(keyClear && keyClearReady) {
+	LD	A,(_keyClear)
+	OR	A,A
+	JR	Z,L_38
+	LD	A,(_keyClearReady)
+	OR	A,A
+	JR	Z,L_38
+;   75				keyClearReady = 0;
+	XOR	A,A
+	LD	(_keyClearReady),A
+;   76				menuState = 0;
+	XOR	A,A
+	LD	(_menuState),A
+;   77			}
+;   78		}
+;   79		else if(menuState == 3) {changeState(1);} // return to main menu
+	JR	L_38
+L_33:
+	LD	A,(_menuState)
+	CP	A,3
+	JR	NZ,L_38
+	LD	BC,1
+	PUSH	BC
+	CALL	_changeState
+	POP	BC
+;   80	}
+L_38:
+	RET	
+
+
+;**************************** _updateMenu ***************************
+;Name                         Addr/Register   Size   Type
+;_changeState                        IMPORT  -----   function
+;_keyDownReady                       IMPORT      1   variable
+;_keyDown                            IMPORT      1   variable
+;_keyUpReady                         IMPORT      1   variable
+;_keyUp                              IMPORT      1   variable
+;_menuTimer                          STATIC      1   variable
+;_menuSelection                      STATIC      1   variable
+;_keyEnterReady                      IMPORT      1   variable
+;_keyEnter                           IMPORT      1   variable
+;_running                            IMPORT      1   variable
+;_keyClearReady                      IMPORT      1   variable
+;_keyClear                           IMPORT      1   variable
+;_menuState                          STATIC      1   variable
+
+
+; Stack Frame Size: 6 (bytes)
+;       Spill Code: 0 (instruction)
+
+
+;   81	void drawMenu() {
+_drawMenu:
+;   82		gfx_FillScreen(COLOR_BG);
+	LD	A,(_COLOR_BG)
+	LD	C,A
+	LD	B,0
+	PUSH	BC
+	CALL	_gfx_FillScreen
+	POP	BC
+;   83		
+;   84		if(menuState == 0) { // PRESS ENTER
+	LD	A,(_menuState)
+	OR	A,A
+	JR	NZ,L_51
+;   85			drawString("TETRIS", 160, 0, 0, CENTER_JUSTIFIED, TOP_ALIGNED);
+	LD	A,(_TOP_ALIGNED)
+	LD	C,A
+	LD	A,(_CENTER_JUSTIFIED)
+	LD	B,0
+	PUSH	BC
+	LD	C,A
+	PUSH	BC
+	LD	BC,0
+	PUSH	BC
+	PUSH	BC
+	LD	BC,160
+	PUSH	BC
+	LD	BC,L__26
+	PUSH	BC
+	CALL	_drawString
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+;   86			
+;   87			if(menuTimer < 30) {drawString("Press Enter", 160, 120, 0, CENTER_JUSTIFIED, MIDDLE_ALIGNED);}
+	LD	A,(_menuTimer)
+	CP	A,30
+	JR	NC,L_40
+	LD	A,(_MIDDLE_ALIGNED)
+	LD	C,A
+	LD	A,(_CENTER_JUSTIFIED)
+	LD	B,0
+	PUSH	BC
+	LD	C,A
+	PUSH	BC
+	LD	BC,0
+	PUSH	BC
+	LD	BC,120
+	PUSH	BC
+	LD	BC,160
+	PUSH	BC
+	LD	BC,L__28
+	PUSH	BC
+	CALL	_drawString
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+L_40:
+;   88			
+;   89			drawString("Programmed by Ben Correll", 10, 240, 0, LEFT_JUSTIFIED, BOTTOM_ALIGNED);
+	LD	A,(_BOTTOM_ALIGNED)
+	LD	C,A
+	LD	A,(_LEFT_JUSTIFIED)
+	LD	B,0
+	PUSH	BC
+	LD	C,A
+	PUSH	BC
+	LD	BC,0
+	PUSH	BC
+	LD	BC,240
+	PUSH	BC
+	LD	BC,10
+	PUSH	BC
+	LD	BC,L__29
+	PUSH	BC
+	CALL	_drawString
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+;   90			drawString("Version 1.0", 310, 240, 0, RIGHT_JUSTIFIED, BOTTOM_ALIGNED);
+	LD	A,(_BOTTOM_ALIGNED)
+	LD	C,A
+	LD	A,(_RIGHT_JUSTIFIED)
+	LD	B,0
+	PUSH	BC
+	LD	C,A
+	PUSH	BC
+	LD	BC,0
+	PUSH	BC
+	LD	BC,240
+	PUSH	BC
+	LD	BC,54
+	PUSH	BC
+	LD	BC,L__30
+	PUSH	BC
+	CALL	_drawString
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+;   91		}
+;   92		else if(menuState == 1) { // START | CONTROLS
+	JR	L_52
+L_51:
+	LD	A,(_menuState)
+	CP	A,1
+	JR	NZ,L_49
+;   93			drawString("TETRIS", 160, 0, 0, CENTER_JUSTIFIED, TOP_ALIGNED);
+	LD	A,(_TOP_ALIGNED)
+	LD	C,A
+	LD	A,(_CENTER_JUSTIFIED)
+	LD	B,0
+	PUSH	BC
+	LD	C,A
+	PUSH	BC
+	LD	BC,0
+	PUSH	BC
+	PUSH	BC
+	LD	BC,160
+	PUSH	BC
+	LD	BC,L__32
+	PUSH	BC
+	CALL	_drawString
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+;   94			
+;   95			if(menuSelection == 0) {fontlib_SetColors(COLOR_FONT, COLOR_BG);}
+	LD	A,(_menuSelection)
+	OR	A,A
+	JR	NZ,L_42
+	LD	A,(_COLOR_BG)
+	LD	C,A
+	LD	A,(_COLOR_FONT)
+	LD	B,0
+	PUSH	BC
+	LD	C,A
+	PUSH	BC
+	CALL	_fontlib_SetColors
+	POP	BC
+	POP	BC
+;   96			else {fontlib_SetColors(COLOR_FIELD, COLOR_BG);}
+	JR	L_43
+L_42:
+	LD	A,(_COLOR_BG)
+	LD	C,A
+	LD	A,(_COLOR_FIELD)
+	LD	B,0
+	PUSH	BC
+	LD	C,A
+	PUSH	BC
+	CALL	_fontlib_SetColors
+	POP	BC
+	POP	BC
+L_43:
+;   97			drawString("Start", 160, 120, -1, CENTER_JUSTIFIED, MIDDLE_ALIGNED);
+	LD	A,(_MIDDLE_ALIGNED)
+	LD	C,A
+	LD	A,(_CENTER_JUSTIFIED)
+	LD	B,0
+	PUSH	BC
+	LD	C,A
+	PUSH	BC
+	LD	BC,16777215
+	PUSH	BC
+	LD	BC,120
+	PUSH	BC
+	LD	BC,160
+	PUSH	BC
+	LD	BC,L__34
+	PUSH	BC
+	CALL	_drawString
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+;   98			
+;   99			if(menuSelection == 1) {fontlib_SetColors(COLOR_FONT, COLOR_BG);}
+	LD	A,(_menuSelection)
+	CP	A,1
+	JR	NZ,L_45
+	LD	A,(_COLOR_BG)
+	LD	C,A
+	LD	A,(_COLOR_FONT)
+	LD	B,0
+	PUSH	BC
+	LD	C,A
+	PUSH	BC
+	CALL	_fontlib_SetColors
+	POP	BC
+	POP	BC
+;  100			else {fontlib_SetColors(COLOR_FIELD, COLOR_BG);}
+	JR	L_46
+L_45:
+	LD	A,(_COLOR_BG)
+	LD	C,A
+	LD	A,(_COLOR_FIELD)
+	LD	B,0
+	PUSH	BC
+	LD	C,A
+	PUSH	BC
+	CALL	_fontlib_SetColors
+	POP	BC
+	POP	BC
+L_46:
+;  101			drawString("Controls", 160, 120, 1, CENTER_JUSTIFIED, MIDDLE_ALIGNED);
+	LD	A,(_MIDDLE_ALIGNED)
+	LD	C,A
+	LD	A,(_CENTER_JUSTIFIED)
+	LD	B,0
+	PUSH	BC
+	LD	C,A
+	PUSH	BC
+	LD	BC,1
+	PUSH	BC
+	LD	BC,120
+	PUSH	BC
+	LD	BC,160
+	PUSH	BC
+	LD	BC,L__36
+	PUSH	BC
+	CALL	_drawString
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+;  102			
+;  103			fontlib_SetColors(COLOR_FONT, COLOR_BG);
+	LD	A,(_COLOR_BG)
+	LD	C,A
+	LD	A,(_COLOR_FONT)
+	LD	B,0
+	PUSH	BC
+	LD	C,A
+	PUSH	BC
+	CALL	_fontlib_SetColors
+	POP	BC
+	POP	BC
+;  104			
+;  105			drawString("Programmed by Ben Correll", 10, 240, 0, LEFT_JUSTIFIED, BOTTOM_ALIGNED);
+	LD	A,(_BOTTOM_ALIGNED)
+	LD	C,A
+	LD	A,(_LEFT_JUSTIFIED)
+	LD	B,0
+	PUSH	BC
+	LD	C,A
+	PUSH	BC
+	LD	BC,0
+	PUSH	BC
+	LD	BC,240
+	PUSH	BC
+	LD	BC,10
+	PUSH	BC
+	LD	BC,L__37
+	PUSH	BC
+	CALL	_drawString
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+;  106			drawString("Version 1.0", 310, 240, 0, RIGHT_JUSTIFIED, BOTTOM_ALIGNED);
+	LD	A,(_BOTTOM_ALIGNED)
+	LD	C,A
+	LD	A,(_RIGHT_JUSTIFIED)
+	LD	B,0
+	PUSH	BC
+	LD	C,A
+	PUSH	BC
+	LD	BC,0
+	PUSH	BC
+	LD	BC,240
+	PUSH	BC
+	LD	BC,54
+	PUSH	BC
+	LD	BC,L__38
+	PUSH	BC
+	CALL	_drawString
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+;  107		}
+;  108		else if(menuState == 2) { // list controls
+	JR	L_52
+L_49:
+	LD	A,(_menuState)
+	CP	A,2
+	JR	NZ,L_52
+;  109			drawString("Controls", 160, 0, 0, CENTER_JUSTIFIED, TOP_ALIGNED);
+	LD	A,(_TOP_ALIGNED)
+	LD	C,A
+	LD	A,(_CENTER_JUSTIFIED)
+	LD	B,0
+	PUSH	BC
+	LD	C,A
+	PUSH	BC
+	LD	BC,0
+	PUSH	BC
+	PUSH	BC
+	LD	BC,160
+	PUSH	BC
+	LD	BC,L__40
+	PUSH	BC
+	CALL	_drawString
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+;  110			drawString("Left and right arrows to move", 160, 120, -3, CENTER_JUSTIFIED, MIDDLE_ALIGNED);
+	LD	A,(_MIDDLE_ALIGNED)
+	LD	C,A
+	LD	A,(_CENTER_JUSTIFIED)
+	LD	B,0
+	PUSH	BC
+	LD	C,A
+	PUSH	BC
+	LD	BC,16777213
+	PUSH	BC
+	LD	BC,120
+	PUSH	BC
+	LD	BC,160
+	PUSH	BC
+	LD	BC,L__41
+	PUSH	BC
+	CALL	_drawString
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+;  111			drawString("Down arrow to fast drop", 160, 120, -2, CENTER_JUSTIFIED, MIDDLE_ALIGNED);
+	LD	A,(_MIDDLE_ALIGNED)
+	LD	C,A
+	LD	A,(_CENTER_JUSTIFIED)
+	LD	B,0
+	PUSH	BC
+	LD	C,A
+	PUSH	BC
+	LD	BC,16777214
+	PUSH	BC
+	LD	BC,120
+	PUSH	BC
+	LD	BC,160
+	PUSH	BC
+	LD	BC,L__42
+	PUSH	BC
+	CALL	_drawString
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+;  112			drawString("Up arrow to hard drop", 160, 120, -1, CENTER_JUSTIFIED, MIDDLE_ALIGNED);
+	LD	A,(_MIDDLE_ALIGNED)
+	LD	C,A
+	LD	A,(_CENTER_JUSTIFIED)
+	LD	B,0
+	PUSH	BC
+	LD	C,A
+	PUSH	BC
+	LD	BC,16777215
+	PUSH	BC
+	LD	BC,120
+	PUSH	BC
+	LD	BC,160
+	PUSH	BC
+	LD	BC,L__43
+	PUSH	BC
+	CALL	_drawString
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+;  113			drawString("2nd and mode to rotate", 160, 120, 0, CENTER_JUSTIFIED, MIDDLE_ALIGNED);
+	LD	A,(_MIDDLE_ALIGNED)
+	LD	C,A
+	LD	A,(_CENTER_JUSTIFIED)
+	LD	B,0
+	PUSH	BC
+	LD	C,A
+	PUSH	BC
+	LD	BC,0
+	PUSH	BC
+	LD	BC,120
+	PUSH	BC
+	LD	BC,160
+	PUSH	BC
+	LD	BC,L__44
+	PUSH	BC
+	CALL	_drawString
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+;  114			drawString("Del to save", 160, 120, 1, CENTER_JUSTIFIED, MIDDLE_ALIGNED);
+	LD	A,(_MIDDLE_ALIGNED)
+	LD	C,A
+	LD	A,(_CENTER_JUSTIFIED)
+	LD	B,0
+	PUSH	BC
+	LD	C,A
+	PUSH	BC
+	LD	BC,1
+	PUSH	BC
+	LD	BC,120
+	PUSH	BC
+	LD	BC,160
+	PUSH	BC
+	LD	BC,L__45
+	PUSH	BC
+	CALL	_drawString
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+;  115			drawString("Press Clear to Return", 160, 240, 0, CENTER_JUSTIFIED, BOTTOM_ALIGNED);
+	LD	A,(_BOTTOM_ALIGNED)
+	LD	C,A
+	LD	A,(_CENTER_JUSTIFIED)
+	LD	B,0
+	PUSH	BC
+	LD	C,A
+	PUSH	BC
+	LD	BC,0
+	PUSH	BC
+	LD	BC,240
+	PUSH	BC
+	LD	BC,160
+	PUSH	BC
+	LD	BC,L__46
+	PUSH	BC
+	CALL	_drawString
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+	POP	BC
+;  116		}
+L_52:
+;  117		
+;  118		gfx_Blit(gfx_buffer);
+	LD	BC,1
+	PUSH	BC
+	CALL	_gfx_Blit
+	POP	BC
+	RET	
+
+
+;**************************** _drawMenu ***************************
+;Name                         Addr/Register   Size   Type
+;_gfx_Blit                           IMPORT  -----   function
+;_COLOR_FIELD                        IMPORT      1   variable
+;_COLOR_FONT                         IMPORT      1   variable
+;_fontlib_SetColors                  IMPORT  -----   function
+;_menuSelection                      STATIC      1   variable
+;_RIGHT_JUSTIFIED                    IMPORT      1   variable
+;_LEFT_JUSTIFIED                     IMPORT      1   variable
+;_BOTTOM_ALIGNED                     IMPORT      1   variable
+;_MIDDLE_ALIGNED                     IMPORT      1   variable
+;_menuTimer                          STATIC      1   variable
+;_CENTER_JUSTIFIED                   IMPORT      1   variable
+;_TOP_ALIGNED                        IMPORT      1   variable
+;_drawString                         IMPORT  -----   function
+;_menuState                          STATIC      1   variable
+;_COLOR_BG                           IMPORT      1   variable
+;_gfx_FillScreen                     IMPORT  -----   function
+
+
+; Stack Frame Size: 6 (bytes)
+;       Spill Code: 0 (instruction)
+
+
+	SEGMENT STRSECT
+L__26:
+	DB	"TETRIS"
+	DB	0
+L__28:
+	DB	"Press Enter"
+	DB	0
+L__29:
+	DB	"Programmed by Ben Correll"
+	DB	0
+L__30:
+	DB	"Version 1.0"
+	DB	0
+L__32:
+	DB	"TETRIS"
+	DB	0
+L__34:
+	DB	"Start"
+	DB	0
+L__36:
+	DB	"Controls"
+	DB	0
+L__37:
+	DB	"Programmed by Ben Correll"
+	DB	0
+L__38:
+	DB	"Version 1.0"
+	DB	0
+L__40:
+	DB	"Controls"
+	DB	0
+L__41:
+	DB	"Left and right arrows to move"
+	DB	0
+L__42:
+	DB	"Down arrow to fast drop"
+	DB	0
+L__43:
+	DB	"Up arrow to hard drop"
+	DB	0
+L__44:
+	DB	"2nd and mode to rotate"
+	DB	0
+L__45:
+	DB	"Del to save"
+	DB	0
+L__46:
+	DB	"Press Clear to Return"
+	DB	0
+	XREF _COLOR_FIELD:ROM
+	XREF _drawString:ROM
+	XREF _BOTTOM_ALIGNED:ROM
+	XREF _MIDDLE_ALIGNED:ROM
+	XREF _TOP_ALIGNED:ROM
+	XREF _RIGHT_JUSTIFIED:ROM
+	XREF _CENTER_JUSTIFIED:ROM
+	XREF _LEFT_JUSTIFIED:ROM
+	XREF _changeState:ROM
+	XREF _keyClearReady:ROM
+	XREF _keyEnterReady:ROM
+	XREF _keyDownReady:ROM
+	XREF _keyUpReady:ROM
+	XREF _keyClear:ROM
+	XREF _keyEnter:ROM
+	XREF _keyDown:ROM
+	XREF _keyUp:ROM
+	XREF _running:ROM
+	XREF _COLOR_FONT:ROM
+	XREF _COLOR_BG:ROM
+	XREF _fontlib_SetColors:ROM
+	XREF _gfx_Blit:ROM
+	XREF _gfx_FillScreen:ROM
+	XDEF _drawMenu
+	XDEF _updateMenu
+	XDEF _initMenu
+	XDEF _menuSelection
+	XDEF _menuTimer
+	XDEF _menuState
+	END
